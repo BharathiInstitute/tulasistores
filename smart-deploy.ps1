@@ -1,7 +1,7 @@
 # Smart Deploy Agent v4.0 - Tulasi Stores
 # Asks smart questions first, then runs everything automatically
 #
-# Usage:  
+# Usage:   
 #        .\smart-deploy.ps1 -Rollback                    # Rollback all platforms
 #        .\smart-deploy.ps1 -Rollback -RollbackTarget web  # Rollback web only
 #        .\smart-deploy.ps1 -DryRun                      # Preview without deploying

@@ -396,7 +396,7 @@ service cloud.firestore {
     // ===================
     match /desktop_auth_sessions/{sessionId} {
       // Allow anyone to create a pending session (desktop app creates before auth)
-      allow create: if request.resource.data.keys().hasOnly(['status', 'createdAt', 'expiresAt'])
+      allow create: if request.resource.data.keys().hasOnly(['status', 'createdAt', 'expiresAt', 'deviceId'])
         && request.resource.data.status == 'pending'
         && request.resource.size() < 1000;
       

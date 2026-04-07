@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Process;
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -423,7 +424,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
   /// Sign in with Google — multi-layer approach for maximum reliability
   /// Web: signInWithPopup → GoogleSignIn package → signInWithRedirect
   /// Mobile: GoogleSignIn package directly
-  /// Desktop: Try GoogleSignIn package, fall back to helpful message
+  /// Desktop: Browser bridge via login-radha.web.app (no Console config needed)
   Future<bool> signInWithGoogle() async {
     try {
       // Allow authStateChanges listener to process this new sign-in
@@ -432,8 +433,8 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       if (kIsWeb) {
         return await _googleSignInWeb();
       } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-        // Windows: open browser to /desktop-login bridge page for Google auth
-        return await signInDesktop();
+        // Windows: open Edge app-mode window for Google auth
+        return await signInDesktop(autoGoogle: true);
       } else {
         return await _googleSignInMobile();
       }
@@ -554,10 +555,10 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Windows Desktop: Web-based auth via browser
-  /// Opens the hosted web app for full auth (Google, email, phone, shop setup)
-  /// then polls Firestore for a custom auth token
-  Future<bool> signInDesktop() async {
+  /// Windows Desktop: Web-based auth via Edge app mode
+  /// Opens the hosted web app in a clean Edge window for auth
+  /// then listens on Firestore for a custom auth token.
+  Future<bool> signInDesktop({bool autoGoogle = false}) async {
     try {
       state = state.copyWith(isLoading: true);
       debugPrint('🖥️ Desktop: Starting web-based auth flow...');
@@ -592,19 +593,45 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
         desktopLinkExpiresAt: expiresAt,
       );
 
-      // 3. Open web app in browser
-      const webAppUrl = 'https://app.retaillite.com/app/desktop-login';
-      final fullUrl = Uri.parse('$webAppUrl?code=$linkCode');
+      // 3. Open web app — on Windows use Edge app mode (minimal window)
+      const webAppUrl = 'https://login-radha.web.app/app/desktop-login';
+      final autoParam = autoGoogle ? '&auto=google' : '';
+      final fullUrl = '$webAppUrl?code=$linkCode$autoParam';
 
-      if (!await launchUrl(fullUrl, mode: LaunchMode.externalApplication)) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Could not open browser. Please try again.',
-        );
-        return false;
+      Process? appProcess;
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        // Try Edge app mode first (clean window, no address bar)
+        try {
+          appProcess = await Process.start('cmd', [
+            '/c',
+            'start',
+            'msedge',
+            '--app=$fullUrl',
+            '--window-size=500,700',
+          ]);
+          debugPrint('🖥️ Desktop: Opened Edge in app mode');
+        } catch (_) {
+          // Fallback to default browser
+          debugPrint('🖥️ Desktop: Edge app mode failed, using browser');
+          await launchUrl(
+            Uri.parse(fullUrl),
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      } else {
+        if (!await launchUrl(
+          Uri.parse(fullUrl),
+          mode: LaunchMode.externalApplication,
+        )) {
+          state = state.copyWith(
+            isLoading: false,
+            error: 'Could not open browser. Please try again.',
+          );
+          return false;
+        }
       }
 
-      debugPrint('🖥️ Desktop: Opened browser, waiting for auth token...');
+      debugPrint('🖥️ Desktop: Opened login UI, waiting for auth token...');
 
       // 4. Listen for auth token via real-time snapshot (not polling)
       // This uses a single Firestore listener instead of ~200 reads over 10 min.
@@ -663,6 +690,7 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
                   debugPrint('✅ Desktop: Signed in successfully!');
                   timer.cancel();
                   unawaited(sessionSub?.cancel());
+                  appProcess?.kill();
                   if (!completer.isCompleted) completer.complete(true);
                 } catch (e) {
                   debugPrint('🖥️ Desktop: signInWithCustomToken failed: $e');
@@ -692,9 +720,14 @@ class FirebaseAuthNotifier extends StateNotifier<AuthState> {
       return await completer.future;
     } catch (e) {
       debugPrint('🖥️ Desktop auth error: $e');
+      final msg = e.toString();
       state = state.copyWith(
         isLoading: false,
-        error: 'Sign-in failed. Please try again.',
+        error:
+            msg.contains('permission-denied') ||
+                msg.contains('PERMISSION_DENIED')
+            ? 'Firestore permission denied. Please update security rules and redeploy.'
+            : 'Sign-in failed. Please try again.',
       );
       return false;
     }

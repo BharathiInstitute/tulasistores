@@ -55,9 +55,7 @@ class SupportService {
         subject: subject,
         tags: tags,
         lastMessage: firstMessage,
-        lastSenderRole: 'store',
         unreadAdmin: 1,
-        unreadStore: 0,
       );
 
       final batch = _firestore.batch();

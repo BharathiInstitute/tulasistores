@@ -92,7 +92,7 @@ class TicketChatScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ChatScreen(ticketId: ticketId, viewerRole: 'store'),
+      body: ChatScreen(ticketId: ticketId),
     );
   }
 }

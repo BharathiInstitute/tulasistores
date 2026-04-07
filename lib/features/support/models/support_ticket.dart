@@ -63,16 +63,16 @@ class SupportTicket {
     final d = doc.data() as Map<String, dynamic>? ?? {};
     return SupportTicket(
       id: doc.id,
-      storeId: d['storeId'] as String? ?? '',
-      storeName: d['storeName'] as String? ?? '',
-      storeEmail: d['storeEmail'] as String? ?? '',
-      subject: d['subject'] as String? ?? '',
-      status: _parseStatus(d['status'] as String?),
-      priority: _parsePriority(d['priority'] as String?),
+      storeId: _asString(d['storeId']),
+      storeName: _asString(d['storeName']),
+      storeEmail: _asString(d['storeEmail']),
+      subject: _asString(d['subject']),
+      status: _parseStatus(_asStringOrNull(d['status'])),
+      priority: _parsePriority(_asStringOrNull(d['priority'])),
       tags: List<String>.from(d['tags'] as List? ?? []),
-      assignedAdmin: d['assignedAdmin'] as String?,
-      lastMessage: d['lastMessage'] as String? ?? '',
-      lastSenderRole: d['lastSenderRole'] as String? ?? 'store',
+      assignedAdmin: _asStringOrNull(d['assignedAdmin']),
+      lastMessage: _asString(d['lastMessage']),
+      lastSenderRole: _asString(d['lastSenderRole'], fallback: 'store'),
       unreadAdmin: (d['unreadAdmin'] as num?)?.toInt() ?? 0,
       unreadStore: (d['unreadStore'] as num?)?.toInt() ?? 0,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
@@ -80,6 +80,13 @@ class SupportTicket {
       closedAt: (d['closedAt'] as Timestamp?)?.toDate(),
     );
   }
+
+  /// Safely convert any Firestore value to String (handles int, bool, etc.)
+  static String _asString(Object? v, {String fallback = ''}) =>
+      v == null ? fallback : v.toString();
+
+  /// Safely convert any Firestore value to String? (handles int, bool, etc.)
+  static String? _asStringOrNull(Object? v) => v?.toString();
 
   Map<String, dynamic> toMap() => {
     'storeId': storeId,
@@ -154,12 +161,12 @@ class ChatMessage {
     final d = doc.data() as Map<String, dynamic>? ?? {};
     return ChatMessage(
       id: doc.id,
-      senderId: d['senderId'] as String? ?? '',
-      senderName: d['senderName'] as String? ?? '',
-      senderRole: d['senderRole'] as String? ?? 'store',
-      text: d['text'] as String? ?? '',
-      attachmentUrl: d['attachmentUrl'] as String?,
-      type: d['type'] as String? ?? 'text',
+      senderId: d['senderId']?.toString() ?? '',
+      senderName: d['senderName']?.toString() ?? '',
+      senderRole: d['senderRole']?.toString() ?? 'store',
+      text: d['text']?.toString() ?? '',
+      attachmentUrl: d['attachmentUrl']?.toString(),
+      type: d['type']?.toString() ?? 'text',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
       readAt: (d['readAt'] as Timestamp?)?.toDate(),
     );

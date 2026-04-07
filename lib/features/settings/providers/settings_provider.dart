@@ -336,6 +336,7 @@ class PrinterState {
   final CutMode cutMode;
   final bool showCopyLabel;
   final bool showHsnOnReceipt;
+  final int printDensity; // 0=Light, 1=Normal, 2=Dark
 
   const PrinterState({
     this.isConnected = false,
@@ -358,6 +359,7 @@ class PrinterState {
     this.cutMode = CutMode.fullCut,
     this.showCopyLabel = false,
     this.showHsnOnReceipt = false,
+    this.printDensity = 1,
   });
 
   String get paperSizeLabel => paperSizeIndex == 0 ? '58mm' : '80mm';
@@ -397,6 +399,7 @@ class PrinterState {
     CutMode? cutMode,
     bool? showCopyLabel,
     bool? showHsnOnReceipt,
+    int? printDensity,
   }) {
     return PrinterState(
       isConnected: isConnected ?? this.isConnected,
@@ -419,6 +422,7 @@ class PrinterState {
       cutMode: cutMode ?? this.cutMode,
       showCopyLabel: showCopyLabel ?? this.showCopyLabel,
       showHsnOnReceipt: showHsnOnReceipt ?? this.showHsnOnReceipt,
+      printDensity: printDensity ?? this.printDensity,
     );
   }
 }
@@ -454,6 +458,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     final printerType = PrinterTypeOption.fromString(
       PrinterStorage.getPrinterType(),
     );
+    final printDensity = PrinterStorage.getPrintDensity();
 
     if (savedPrinter != null) {
       state = PrinterState(
@@ -475,6 +480,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         printerType: printerType,
         showCopyLabel: showCopyLabel,
         showHsnOnReceipt: showHsnOnReceipt,
+        printDensity: printDensity,
       );
     } else {
       state = PrinterState(
@@ -493,6 +499,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
         printerType: printerType,
         showCopyLabel: showCopyLabel,
         showHsnOnReceipt: showHsnOnReceipt,
+        printDensity: printDensity,
       );
     }
   }
@@ -513,6 +520,12 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
   Future<void> setCustomWidth(int width) async {
     await PrinterStorage.saveCustomWidth(width);
     state = state.copyWith(customWidth: width);
+  }
+
+  /// Set print density (0=Light, 1=Normal, 2=Dark)
+  Future<void> setPrintDensity(int density) async {
+    await PrinterStorage.savePrintDensity(density);
+    state = state.copyWith(printDensity: density);
   }
 
   /// Save and connect to printer
@@ -559,6 +572,7 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
       showLogoOnThermal: state.showLogoOnThermal,
       cutMode: state.cutMode,
       printerType: state.printerType,
+      printDensity: state.printDensity,
     );
   }
 

@@ -208,6 +208,15 @@ class EscPosBuilder {
 
     final bytes = <int>[0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH];
 
+    // Luminance threshold based on saved density setting
+    // 0=Light (90), 1=Normal (128), 2=Dark (180)
+    final density = PrinterStorage.getPrintDensity();
+    final threshold = density == 0
+        ? 90
+        : density == 2
+        ? 180
+        : 128;
+
     // Build 1-bit raster data (dark pixel = 1, light pixel = 0)
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < bytesPerLine; x++) {
@@ -216,8 +225,8 @@ class EscPosBuilder {
           final px = x * 8 + bit;
           if (px < width) {
             final pixel = grayscale.getPixel(px, y);
-            // Luminance threshold: < 128 = dark = print
-            if (pixel.luminance < 128) {
+            // Luminance threshold: < threshold = dark = print
+            if (pixel.luminance < threshold) {
               byte |= (0x80 >> bit);
             }
           }

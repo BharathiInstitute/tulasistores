@@ -54,8 +54,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.read(authNotifierProvider.notifier).clearError();
 
     try {
-      final success =
-          await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+      final success = await ref
+          .read(authNotifierProvider.notifier)
+          .signInWithGoogle();
       // If linking is needed, show password dialog
       if (!success && mounted) {
         final authState = ref.read(authNotifierProvider);
@@ -106,8 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
                     ),
-                    onPressed: () =>
-                        setDialogState(() => obscure = !obscure),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
                   ),
                 ),
                 onSubmitted: linking
@@ -125,9 +125,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         if (!success && mounted) {
                           final error = ref.read(authErrorProvider);
                           if (error != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error)),
-                            );
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(error)));
                           }
                         }
                       },
@@ -162,9 +162,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (!success && mounted) {
                         final error = ref.read(authErrorProvider);
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error)),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(error)));
                         }
                       }
                     },

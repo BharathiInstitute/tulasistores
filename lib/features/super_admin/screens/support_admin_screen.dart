@@ -110,7 +110,7 @@ class _SupportAdminScreenState extends ConsumerState<SupportAdminScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: tickets.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemBuilder: (context, index) {
                     final t = tickets[index];
                     return _AdminTicketTile(ticket: t);

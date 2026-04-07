@@ -740,7 +740,7 @@ exports.generateDesktopToken = functions
         throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
     }
     const { linkCode } = data;
-    if (!linkCode || linkCode.length !== 6) {
+    if (!linkCode || linkCode.length < 6 || linkCode.length > 8) {
         throw new functions.https.HttpsError("invalid-argument", "Invalid link code");
     }
     const uid = context.auth.uid;

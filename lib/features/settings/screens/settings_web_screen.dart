@@ -1813,13 +1813,17 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
                     _buildFieldLabel('Density'),
                     const SizedBox(height: 8),
                     Slider(
-                      value: 0.7,
-                      onChanged: null,
+                      value: printerState.printDensity.toDouble(),
+                      max: 2,
+                      divisions: 2,
+                      onChanged: (v) => ref
+                          .read(printerProvider.notifier)
+                          .setPrintDensity(v.round()),
                       activeColor: AppColors.primary,
                     ),
-                    const Text(
-                      'Coming soon',
-                      style: TextStyle(
+                    Text(
+                      ['Light', 'Normal', 'Dark'][printerState.printDensity],
+                      style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
                       ),
@@ -2689,32 +2693,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             ),
           ),
           Icon(icon, color: AppColors.textSecondary),
-        ],
-      ),
-    );
-  }
-
-  void _showHelpDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Help Center'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('📧 Email: support@retaillite.com'),
-            SizedBox(height: 8),
-            Text('📞 Phone: +91 9876543210'),
-            SizedBox(height: 8),
-            Text('🕐 Mon-Sat: 9am - 6pm IST'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
         ],
       ),
     );

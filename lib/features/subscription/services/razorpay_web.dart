@@ -111,8 +111,9 @@ JSObject _jsifyMap(Map<String, dynamic> map) {
       obj[entry.key] = value.toJS;
     } else if (value is bool) {
       obj[entry.key] = value.toJS;
-    } else if (value is JSAny) {
-      obj[entry.key] = value;
+      // ignore: invalid_runtime_check_with_js_interop_types
+    } else if (value is JSAny?) {
+      obj[entry.key] = value!;
     }
   }
   return obj;

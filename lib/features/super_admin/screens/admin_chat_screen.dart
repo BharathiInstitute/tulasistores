@@ -386,7 +386,7 @@ class _DropdownAction extends StatelessWidget {
         ),
         Expanded(
           child: DropdownButtonFormField<String>(
-            value: value,
+            initialValue: value,
             items: items,
             onChanged: onChanged,
             decoration: const InputDecoration(

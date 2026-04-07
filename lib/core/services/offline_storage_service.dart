@@ -69,6 +69,7 @@ class PrinterStorage {
   static const String _cutModeKey = 'printer_cut_mode';
   static const String _showCopyLabelKey = 'printer_show_copy_label';
   static const String _showHsnOnReceiptKey = 'printer_show_hsn';
+  static const String _printDensityKey = 'printer_density';
 
   static SharedPreferences? _prefs;
 
@@ -338,6 +339,17 @@ class PrinterStorage {
   static Future<void> saveShowHsnOnReceipt(bool show) async {
     await _ensurePrefs();
     await _prefs?.setBool(_showHsnOnReceiptKey, show);
+  }
+
+  /// Get saved print density (0=Light, 1=Normal, 2=Dark)
+  static int getPrintDensity() {
+    return _prefs?.getInt(_printDensityKey) ?? 1;
+  }
+
+  /// Save print density
+  static Future<void> savePrintDensity(int density) async {
+    await _ensurePrefs();
+    await _prefs?.setInt(_printDensityKey, density);
   }
 
   /// Initialize (called during app startup)

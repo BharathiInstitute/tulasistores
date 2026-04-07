@@ -58,7 +58,7 @@ class MyTicketsScreen extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(12),
             itemCount: tickets.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final t = tickets[index];
               return _TicketCard(ticket: t);
@@ -87,7 +87,7 @@ class MyTicketsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedTag,
+                  initialValue: selectedTag,
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(),
@@ -149,7 +149,7 @@ class MyTicketsScreen extends ConsumerWidget {
                 );
 
                 if (ticketId != null && context.mounted) {
-                  context.push('/support/$ticketId');
+                  await context.push('/support/$ticketId');
                 }
               },
               child: const Text('Submit'),

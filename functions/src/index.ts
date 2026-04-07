@@ -818,7 +818,7 @@ export const generateDesktopToken = functions
         }
 
         const { linkCode } = data;
-        if (!linkCode || linkCode.length !== 6) {
+        if (!linkCode || linkCode.length < 6 || linkCode.length > 8) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
                 "Invalid link code"
