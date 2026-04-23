@@ -308,6 +308,7 @@ class UserMetricsService {
         final snap = await userRef.get();
         final data = snap.data() ?? {};
         final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
+        final subMap = data['subscription'] as Map<String, dynamic>? ?? {};
         final now = DateTime.now();
         final currentMonth =
             '${now.year}-${now.month.toString().padLeft(2, '0')}';
@@ -316,12 +317,17 @@ class UserMetricsService {
         final billsThisMonth = isNewMonth
             ? 0
             : ((limitsMap['billsThisMonth'] as int?) ?? 0);
-        limit = (limitsMap['billsLimit'] as int?) ?? 50;
+        final storedLimit = (limitsMap['billsLimit'] as int?) ?? 50;
+        // Always derive the effective limit from the subscription plan so
+        // users who upgraded don't get blocked by a stale Firestore value.
+        final sub = UserSubscription.fromMap(subMap);
+        limit = sub.isActive ? sub.billsLimit : storedLimit;
         allowed = billsThisMonth < limit;
         if (allowed) {
           newCount = billsThisMonth + 1;
           await userRef.update({
             'limits.billsThisMonth': newCount,
+            'limits.billsLimit': limit, // keep Firestore in sync with plan
             'limits.lastResetMonth': currentMonth,
             'activity.lastActiveAt': FieldValue.serverTimestamp(),
           });
@@ -331,6 +337,7 @@ class UserMetricsService {
           final snap = await txn.get(userRef);
           final data = snap.data() ?? {};
           final limitsMap = data['limits'] as Map<String, dynamic>? ?? {};
+          final subMap = data['subscription'] as Map<String, dynamic>? ?? {};
           final now = DateTime.now();
           final currentMonth =
               '${now.year}-${now.month.toString().padLeft(2, '0')}';
@@ -339,12 +346,15 @@ class UserMetricsService {
           final billsThisMonth = isNewMonth
               ? 0
               : ((limitsMap['billsThisMonth'] as int?) ?? 0);
-          limit = (limitsMap['billsLimit'] as int?) ?? 50;
+          final storedLimit = (limitsMap['billsLimit'] as int?) ?? 50;
+          final sub = UserSubscription.fromMap(subMap);
+          limit = sub.isActive ? sub.billsLimit : storedLimit;
           allowed = billsThisMonth < limit;
           if (allowed) {
             newCount = billsThisMonth + 1;
             txn.update(userRef, {
               'limits.billsThisMonth': newCount,
+              'limits.billsLimit': limit, // keep Firestore in sync with plan
               'limits.lastResetMonth': currentMonth,
               'activity.lastActiveAt': FieldValue.serverTimestamp(),
             });

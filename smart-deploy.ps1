@@ -1371,6 +1371,31 @@ WScript.Quit 0
                 Write-Ok "Web deployed to Firebase Hosting!"
                 Write-DeployLog "WEB DEPLOYED"
 
+                # Upload QZ Tray setup script to Firebase Storage (public downloads)
+                Write-Step "Uploading QZ Tray setup script to Firebase Storage..."
+                $batPath = Join-Path $root "web\qz-tray-setup.bat"
+                if (Test-Path $batPath) {
+                    $fbToken2 = Get-FirebaseAccessToken
+                    if ($fbToken2) {
+                        $batBytes = [System.IO.File]::ReadAllBytes($batPath)
+                        $batEncPath = [System.Uri]::EscapeDataString("downloads/qz-tray-setup.bat")
+                        $batUrl = "https://firebasestorage.googleapis.com/v0/b/login-radha.firebasestorage.app/o?uploadType=media&name=$batEncPath"
+                        $batHeaders = @{ "Authorization" = "Bearer $fbToken2"; "Content-Type" = "application/octet-stream" }
+                        try {
+                            Invoke-RestMethod -Uri $batUrl -Method Post -Body $batBytes -Headers $batHeaders -TimeoutSec 30 | Out-Null
+                            $metaUrl2 = "https://firebasestorage.googleapis.com/v0/b/login-radha.firebasestorage.app/o/$batEncPath"
+                            $metaBody2 = '{"contentType":"application/octet-stream","contentDisposition":"attachment; filename=qz-tray-setup.bat","cacheControl":"no-cache,max-age=0"}'
+                            Invoke-RestMethod -Uri $metaUrl2 -Method Patch -Body $metaBody2 -Headers @{ "Authorization" = "Bearer $fbToken2"; "Content-Type" = "application/json" } -TimeoutSec 15 | Out-Null
+                            Write-Ok "qz-tray-setup.bat uploaded to Storage (public download)"
+                            Write-DeployLog "STORAGE UPLOAD | qz-tray-setup.bat"
+                        } catch {
+                            Write-Warn "Could not upload qz-tray-setup.bat: $($_.Exception.Message)"
+                        }
+                    } else {
+                        Write-Warn "No Firebase auth token — skipping qz-tray-setup.bat upload"
+                    }
+                }
+
                 Write-Step "Health check..."
                 Start-Sleep -Seconds 5
                 $healthUrls = @(

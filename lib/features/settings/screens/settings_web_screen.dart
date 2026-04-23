@@ -21,7 +21,9 @@ import 'package:retaillite/core/services/privacy_consent_service.dart';
 import 'package:retaillite/core/services/user_metrics_service.dart';
 import 'package:retaillite/core/services/payment_link_service.dart';
 import 'package:retaillite/core/services/thermal_printer_service.dart';
+import 'package:retaillite/core/services/qz_tray_service.dart';
 import 'package:retaillite/main.dart' show appVersion, appBuildNumber;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:retaillite/router/app_router.dart';
 import 'package:retaillite/shared/widgets/shop_logo_widget.dart';
 
@@ -58,12 +60,22 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   List<String> _availablePrinters = [];
   bool _isLoadingPrinters = false;
 
+  // QZ Tray state (silent raw ESC/POS printing for Chrome)
+  bool _qzAvailable = false;
+  bool _qzEnabled = false;
+  bool _qzLoading = false;
+  List<String> _qzPrinters = [];
+  String? _qzSelectedPrinter;
+
   @override
   void initState() {
     super.initState();
     final user = ref.read(currentUserProvider);
     _loadSubscription();
     _loadAvailablePrinters();
+    if (kIsWeb) {
+      _refreshQzTray();
+    }
     _shopNameController = TextEditingController(text: user?.shopName ?? '');
     _ownerNameController = TextEditingController(text: user?.ownerName ?? '');
     _contactNumberController = TextEditingController(text: user?.phone ?? '');
@@ -105,6 +117,59 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     if (mounted) setState(() => _isLoadingPrinters = false);
   }
 
+  // ─── QZ Tray (Chrome silent raw ESC/POS printing) ───
+  Future<void> _refreshQzTray() async {
+    if (!kIsWeb) return;
+    setState(() => _qzLoading = true);
+    final avail = await QzTrayService.isAvailable();
+    final enabled = await QzTrayService.isEnabled();
+    final selected = await QzTrayService.getSelectedPrinter();
+    final printers = avail ? await QzTrayService.listPrinters() : <String>[];
+    if (!mounted) return;
+    setState(() {
+      _qzAvailable = avail;
+      _qzEnabled = enabled;
+      _qzSelectedPrinter = selected;
+      _qzPrinters = printers;
+      _qzLoading = false;
+    });
+  }
+
+  Future<void> _toggleQzEnabled(bool v) async {
+    await QzTrayService.setEnabled(v);
+    if (mounted) setState(() => _qzEnabled = v);
+  }
+
+  Future<void> _selectQzPrinter(String? name) async {
+    if (name == null) return;
+    await QzTrayService.setSelectedPrinter(name);
+    if (mounted) setState(() => _qzSelectedPrinter = name);
+  }
+
+  Future<void> _testQzPrint() async {
+    final name = _qzSelectedPrinter;
+    if (name == null) return;
+    final bytes = <int>[
+      0x1B, 0x40, // init
+      0x1B, 0x61, 0x01, // center
+      ...'Tulasi Stores\n'.codeUnits,
+      ...'QZ Tray test print\n'.codeUnits,
+      ...'Width + orientation OK\n\n\n'.codeUnits,
+      0x1D, 0x56, 0x01, // partial cut
+    ];
+    final ok = await QzTrayService.printRaw(
+      printerName: name,
+      data: Uint8List.fromList(bytes),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Test sent to $name' : 'Test print failed'),
+        backgroundColor: ok ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
   Future<void> _handleTestPrint() async {
     final messenger = ScaffoldMessenger.of(context);
 
@@ -144,6 +209,10 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         await ref
             .read(printerProvider.notifier)
             .connectPrinter('USB: $printerName', printerName);
+        // Set printer type to USB so ESC/POS raw bytes are sent instead of PDF
+        await ref
+            .read(printerProvider.notifier)
+            .setPrinterType(PrinterTypeOption.usb);
       }
     }
   }
@@ -1707,6 +1776,211 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     );
   }
 
+  Widget _buildQzTraySectionCard() {
+    final theme = Theme.of(context);
+    return _SectionCard(
+      icon: Icons.cloud_download_outlined,
+      iconColor: AppColors.success,
+      title: 'Silent Print (Chrome)',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: (_qzAvailable ? AppColors.success : Colors.grey)
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _qzAvailable ? Icons.check_circle : Icons.cancel,
+                  size: 12,
+                  color: _qzAvailable ? AppColors.success : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _qzAvailable ? 'Ready' : 'Not set up',
+                  style: TextStyle(
+                    color: _qzAvailable ? AppColors.success : Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Re-check',
+            icon: _qzLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh, size: 18),
+            onPressed: _qzLoading ? null : _refreshQzTray,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _qzAvailable
+                ? 'Prints receipts directly to the thermal printer — no Chrome '
+                      'print dialog, correct 58mm width, correct orientation.'
+                : 'Fixes wrong-size / upside-down receipts from Chrome. '
+                      'Download and run the setup file below — it installs '
+                      'everything automatically (free, one-time per PC).',
+            style: TextStyle(fontSize: 13, color: theme.colorScheme.outline),
+          ),
+          const SizedBox(height: 16),
+          if (!_qzAvailable) ...[
+            FilledButton.icon(
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Download Print Setup (.bat)'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+              ),
+              onPressed: () {
+                // Direct Firebase Storage URL — always available, no web build required
+                const url =
+                    'https://firebasestorage.googleapis.com/v0/b/'
+                    'login-radha.firebasestorage.app/o/'
+                    'downloads%2Fqz-tray-setup.bat?alt=media';
+                // ignore: deprecated_member_use
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              },
+            ),
+            const SizedBox(height: 14),
+            _buildQzStep(
+              '1',
+              'Click the button above — your browser downloads '
+                  'qz-tray-setup.bat',
+            ),
+            _buildQzStep('2', 'Double-click the downloaded file to run it'),
+            _buildQzStep(
+              '3',
+              'The script installs QZ Tray (if needed) and trusts its '
+                  'certificate — fully automatic',
+            ),
+            _buildQzStep(
+              '4',
+              'Come back and click the ↻ refresh button above — the badge '
+                  'turns green',
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              icon: const Icon(Icons.security_outlined, size: 14),
+              label: const Text(
+                'Manual certificate trust (advanced — only if the script '
+                'didn\'t work)',
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.outline,
+                textStyle: const TextStyle(fontSize: 11),
+                padding: EdgeInsets.zero,
+                alignment: Alignment.centerLeft,
+              ),
+              onPressed: () {
+                // ignore: deprecated_member_use
+                launchUrl(
+                  Uri.parse('https://localhost:8182'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+            ),
+          ],
+          if (_qzAvailable) ...[
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Use silent print for receipts'),
+              subtitle: const Text(
+                'Falls back to Chrome print dialog if QZ Tray is unreachable.',
+              ),
+              value: _qzEnabled,
+              onChanged: _toggleQzEnabled,
+            ),
+            if (_qzEnabled) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Thermal printer',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                initialValue: _qzPrinters.contains(_qzSelectedPrinter)
+                    ? _qzSelectedPrinter
+                    : null,
+                items: _qzPrinters
+                    .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                    .toList(),
+                onChanged: _selectQzPrinter,
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Test print'),
+                  onPressed: _qzSelectedPrinter == null ? null : _testQzPrint,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQzStep(String number, String text) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(right: 10, top: 1),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ============ HARDWARE TAB ============
   Widget _buildHardwareTab() {
     final printerState = ref.watch(printerProvider);
@@ -1844,6 +2118,9 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           ),
         ),
         const SizedBox(height: 24),
+
+        // QZ Tray - Silent Chrome printing (web only)
+        if (kIsWeb) ...[_buildQzTraySectionCard(), const SizedBox(height: 24)],
 
         // Barcode Scanner
         _SectionCard(

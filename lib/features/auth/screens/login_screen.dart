@@ -11,6 +11,7 @@ import 'package:retaillite/core/design/design_system.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
 import 'package:retaillite/features/auth/widgets/auth_layout.dart';
 import 'package:retaillite/features/auth/widgets/auth_social_section.dart';
+import 'package:retaillite/features/auth/widgets/windows_webview_login.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -62,6 +63,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final authState = ref.read(authNotifierProvider);
         if (authState.pendingAccountLink) {
           _showLinkPasswordDialog(authState.pendingLinkEmail ?? '');
+        } else if (authState.isLoggedIn) {
+          // User was authenticated via authStateChanges even though
+          // signInWithGoogle returned false — router will redirect.
+          return;
         }
       }
       // Router redirect handles navigation automatically
@@ -218,7 +223,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
     final error = ref.watch(authErrorProvider);
+
+    // Windows: show embedded WebView when desktop login URL is set
+    if (_isWindowsDesktop && authState.desktopLoginUrl != null) {
+      return WindowsWebViewLogin(
+        url: authState.desktopLoginUrl!,
+        linkCode: authState.desktopLinkCode,
+        expiresAt: authState.desktopLinkExpiresAt,
+        onCancel: () {
+          ref.read(authNotifierProvider.notifier).cancelDesktopAuth();
+        },
+      );
+    }
 
     return AuthLayout(
       title: 'Welcome',

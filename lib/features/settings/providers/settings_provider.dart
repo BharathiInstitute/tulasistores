@@ -260,7 +260,7 @@ enum PrinterFontSize {
 
 /// Printer type enum
 enum PrinterTypeOption {
-  system('System Printer', 'Uses system print dialog (USB, WiFi, network)'),
+  system('System Printer', 'PDF print — select a printer for direct print'),
   bluetooth('Bluetooth', 'Direct ESC/POS via Bluetooth'),
   usb('USB', 'Direct ESC/POS via USB cable'),
   wifi('WiFi', 'Direct ESC/POS via network'),

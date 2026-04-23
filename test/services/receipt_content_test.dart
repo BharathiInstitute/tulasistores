@@ -400,7 +400,8 @@ void main() {
   group('Receipt byte structure', () {
     test('starts with init sequence', () {
       final bytes = EscPosBuilder.buildReceipt(bill: cashBill);
-      expect(bytes.sublist(0, 5), equals(EscPosBuilder.init()));
+      final initBytes = EscPosBuilder.init();
+      expect(bytes.sublist(0, initBytes.length), equals(initBytes));
     });
 
     test('contains separator lines', () {
@@ -446,7 +447,8 @@ void main() {
 
     test('starts with init', () {
       final bytes = EscPosBuilder.buildTestPage();
-      expect(bytes.sublist(0, 5), equals(EscPosBuilder.init()));
+      final initBytes = EscPosBuilder.init();
+      expect(bytes.sublist(0, initBytes.length), equals(initBytes));
     });
 
     test('contains TEST PRINT text', () {

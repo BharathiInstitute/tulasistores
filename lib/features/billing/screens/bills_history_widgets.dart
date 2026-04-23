@@ -178,7 +178,12 @@ class _BillRow extends ConsumerWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () {
-                      BillShareService.downloadPdf(bill, context: context);
+                      PrintHelper.printReceipt(
+                        bill: bill,
+                        printerState: ref.read(printerProvider),
+                        user: ref.read(currentUserProvider),
+                        scaffoldMessenger: ScaffoldMessenger.of(context),
+                      );
                     },
                   ),
                 ),

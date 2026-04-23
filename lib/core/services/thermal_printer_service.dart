@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
@@ -86,12 +87,12 @@ class EscPosBuilder {
 
   // ── ESC/POS command helpers ──
 
-  /// Initialize printer and select UTF-8 character code table (codepage 0x6F).
-  /// This ensures non-ASCII characters (₹, Hindi etc.) are printed correctly
-  /// on printers that support multi-byte encodings.
+  /// Initialize printer. Resets all settings to defaults.
+  /// NOTE: Do NOT send codepage 0x6F (UTF-8) — many budget thermal printers
+  /// (e.g. Posiflow SR20) do not support it and interpret the bytes as
+  /// raster data, producing a black rectangle.
   static List<int> init() => [
     0x1B, 0x40, // ESC @ — Initialize printer
-    0x1B, 0x74, 0x6F, // ESC t 111 — Select UTF-8 codepage
   ];
   static List<int> center() => [0x1B, 0x61, 0x01];
   static List<int> left() => [0x1B, 0x61, 0x00];
@@ -486,8 +487,42 @@ class ThermalPrinterService {
     return Platform.isAndroid || Platform.isIOS;
   }
 
+  /// Ensure runtime permissions needed for Bluetooth scan/connect on Android.
+  ///
+  /// On Android 12+, BLUETOOTH_SCAN/CONNECT are required.
+  /// On older Android versions, location permission may be needed by the OS.
+  static Future<bool> ensureBluetoothPermissions() async {
+    if (!isAvailable) return false;
+    if (!Platform.isAndroid) return true;
+
+    try {
+      final results = await <Permission>[
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.locationWhenInUse,
+      ].request();
+
+      final scanGranted = results[Permission.bluetoothScan]?.isGranted ?? false;
+      final connectGranted =
+          results[Permission.bluetoothConnect]?.isGranted ?? false;
+      final locationGranted =
+          results[Permission.locationWhenInUse]?.isGranted ?? false;
+
+      // Android 12+: scan+connect. Legacy Android: location can be enough.
+      final allowed = (scanGranted && connectGranted) || locationGranted;
+      if (!allowed) {
+        debugPrint('BT permission denied: $results');
+      }
+      return allowed;
+    } catch (e) {
+      debugPrint('BT permission request error: $e');
+      return false;
+    }
+  }
+
   static Future<List<PrinterDevice>> getPairedDevices() async {
     if (!isAvailable) return [];
+    if (!await ensureBluetoothPermissions()) return [];
     try {
       final devices = await PrintBluetoothThermal.pairedBluetooths;
       return devices
@@ -501,6 +536,7 @@ class ThermalPrinterService {
 
   static Future<bool> connect(PrinterDevice device) async {
     if (!isAvailable) return false;
+    if (!await ensureBluetoothPermissions()) return false;
     try {
       return await PrintBluetoothThermal.connect(
         macPrinterAddress: device.address,
@@ -831,6 +867,13 @@ class UsbPrinterService {
 
     try {
       debugPrint('🖨️ USB: Sending ${bytes.length} bytes to "$printerName"...');
+
+      // Debug: log first 200 bytes as hex to diagnose black-print issues
+      final preview = bytes
+          .take(200)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(' ');
+      debugPrint('🖨️ USB: first bytes: $preview');
 
       // Write bytes to temp file
       final tempDir = await getTemporaryDirectory();

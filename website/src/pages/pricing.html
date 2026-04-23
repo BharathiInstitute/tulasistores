@@ -738,10 +738,10 @@
           <div class="pricing-plan-desc">For growing shops</div>
           <div class="pricing-price">
             <span class="rupee">₹</span>
-            <span class="pricing-price-amount" data-monthly="299" data-annual="199">299</span>
+            <span class="pricing-price-amount" data-monthly="10" data-annual="20">10</span>
           </div>
           <div class="pricing-price-period">/month</div>
-          <div class="pricing-annual-note" data-monthly="&nbsp;" data-annual="₹2,390/year — save ₹1,198!"></div>
+          <div class="pricing-annual-note" data-monthly="&nbsp;" data-annual="₹20/year — save ₹100!"></div>
           <ul class="pricing-features">
             <li><span class="check">✓</span> 500 bills per month</li>
             <li><span class="check">✓</span> Unlimited products</li>
@@ -760,10 +760,10 @@
           <div class="pricing-plan-desc">For high-volume stores</div>
           <div class="pricing-price">
             <span class="rupee">₹</span>
-            <span class="pricing-price-amount" data-monthly="999" data-annual="666">999</span>
+            <span class="pricing-price-amount" data-monthly="20" data-annual="30">20</span>
           </div>
           <div class="pricing-price-period">/month</div>
-          <div class="pricing-annual-note" data-monthly="&nbsp;" data-annual="₹7,990/year — save ₹3,998!"></div>
+          <div class="pricing-annual-note" data-monthly="&nbsp;" data-annual="₹30/year — save ₹210!"></div>
           <ul class="pricing-features">
             <li><span class="check">✓</span> Unlimited bills</li>
             <li><span class="check">✓</span> Unlimited products</li>
@@ -1109,7 +1109,7 @@
     const functions = firebase.app().functions('asia-south1');
     const db = firebase.firestore();
 
-    const RAZORPAY_KEY = 'rzp_live_SY8AxnUQ76sLJj';
+    const RAZORPAY_KEY = 'rzp_live_Sess5YkfBj3RY0';
 
     let currentUser = null;
     let pendingPlan = null; // set when user clicks subscribe before login
@@ -1158,7 +1158,7 @@
         const plan = pendingPlan;
         pendingPlan = null;
         closeLoginModal();
-        startSubscription(plan);
+        startPayment(plan);
       }
 
       // Listen to Firestore for current plan
@@ -1362,9 +1362,30 @@
       const params = new URLSearchParams(window.location.search);
       const plan = params.get('plan');
       const cycle = params.get('cycle');
-      if (plan && (plan === 'pro' || plan === 'business')) {
+      const token = params.get('token');
+
+      // Clean token from URL to prevent reuse on refresh
+      if (token) {
+        const cleanUrl = window.location.pathname + '?' +
+          Array.from(params.entries()).filter(function(e) { return e[0] !== 'token'; })
+            .map(function(e) { return e[0] + '=' + encodeURIComponent(e[1]); }).join('&');
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
+      if (token && plan && (plan === 'pro' || plan === 'business')) {
+        // Sign in with custom token from the app (correct user account)
         if (cycle === 'annual') { isAnnual = true; updatePrices(); }
-        // Auto-trigger after a brief delay for page to settle
+        auth.signInWithCustomToken(token).then(function() {
+          // onAuthStateChanged will fire; set pendingPlan so payment starts automatically
+          pendingPlan = plan;
+        }).catch(function(err) {
+          console.error('Token sign-in failed:', err);
+          // Fall back to normal login modal flow
+          setTimeout(function () { handleSubscribe(plan); }, 500);
+        });
+      } else if (plan && (plan === 'pro' || plan === 'business')) {
+        if (cycle === 'annual') { isAnnual = true; updatePrices(); }
+        // No token — show login modal as before
         setTimeout(function () { handleSubscribe(plan); }, 500);
       }
     })();
@@ -1376,7 +1397,7 @@
         showLoginModal();
         return;
       }
-      startSubscription(plan);
+      startPayment(plan);
     }
 
     // ─── Login Modal ───
@@ -1551,48 +1572,51 @@
       document.getElementById('payment-overlay').style.display = 'none';
     }
 
-    // ─── Subscription Flow ───
-    async function startSubscription(plan) {
+    // ─── One-Time Payment Flow ───
+    async function startPayment(plan) {
       const cycle = isAnnual ? 'annual' : 'monthly';
       const btn = document.getElementById('btn-' + plan);
       if (btn) btn.setAttribute('disabled', '');
 
-      showPaymentOverlay('Creating subscription...', 'Please wait while we set up your ' + (plan === 'pro' ? 'Pro' : 'Business') + ' plan.');
+      showPaymentOverlay('Creating order...', 'Please wait while we set up your ' + (plan === 'pro' ? 'Pro' : 'Business') + ' plan.');
 
       try {
-        // Step 1: Create subscription via Cloud Function
-        const createSub = functions.httpsCallable('createSubscription');
-        const result = await createSub({
+        // Step 1: Create order via Cloud Function
+        const createOrderFn = functions.httpsCallable('createOrder');
+        const result = await createOrderFn({
           plan: plan,
           cycle: cycle,
-          customerEmail: currentUser.email || '',
-          customerPhone: currentUser.phoneNumber || '',
-          customerName: currentUser.displayName || '',
         });
 
         const data = result.data;
-        if (!data.success || !data.subscriptionId) {
-          throw new Error(data.error || 'Failed to create subscription');
+        if (!data.success || !data.orderId) {
+          throw new Error(data.error || 'Failed to create order');
         }
 
-        // Step 2: Save pending payment flag for mobile return detection
-        try { sessionStorage.setItem('pendingPayment', JSON.stringify({ subId: data.subscriptionId, plan: plan, cycle: cycle })); } catch(e) {}
-
-        // Step 3: Open Razorpay Checkout
+        // Step 2: Open Razorpay Checkout (UPI only)
         closePaymentOverlay();
-        openRazorpayCheckout(data.subscriptionId, plan, cycle);
+        openRazorpayCheckout(data.orderId, data.amount, plan, cycle);
 
       } catch (err) {
-        console.error('Subscription error:', err);
-        showPaymentError(err.message || 'Could not create subscription. Please try again.');
+        console.error('Payment error:', err);
+        showPaymentError(err.message || 'Could not create order. Please try again.');
         if (btn) btn.removeAttribute('disabled');
       }
     }
 
-    function openRazorpayCheckout(subscriptionId, plan, cycle) {
+    function openRazorpayCheckout(orderId, amount, plan, cycle) {
+      var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      // Save pending payment for recovery if UPI intent redirects away
+      try {
+        sessionStorage.setItem('pendingPayment', JSON.stringify({ plan: plan, cycle: cycle, orderId: orderId }));
+      } catch(e) {}
+
       const options = {
         key: RAZORPAY_KEY,
-        subscription_id: subscriptionId,
+        amount: amount * 100, // paise
+        currency: 'INR',
+        order_id: orderId,
         name: 'Tulasi Stores',
         description: (plan === 'pro' ? 'Pro' : 'Business') + ' Plan (' + (cycle === 'annual' ? 'Annual' : 'Monthly') + ')',
         prefill: {
@@ -1601,17 +1625,48 @@
           name: currentUser.displayName || '',
         },
         theme: { color: '#10B981' },
-        modal: { confirm_close: true },
+        modal: {
+          confirm_close: true,
+          ondismiss: function () {
+            try { sessionStorage.removeItem('pendingPayment'); } catch(e) {}
+            var btn = document.getElementById('btn-' + plan);
+            if (btn) btn.removeAttribute('disabled');
+          },
+        },
         handler: function (response) {
-          // Payment successful — activate subscription
-          activateSubscription(plan, cycle, response.razorpay_payment_id, subscriptionId, response.razorpay_signature);
+          try { sessionStorage.removeItem('pendingPayment'); } catch(e) {}
+          // Payment successful — verify and activate
+          verifyAndActivate(plan, cycle, response.razorpay_payment_id, response.razorpay_order_id, response.razorpay_signature);
         },
       };
+
+      // On mobile: enable card + netbanking as fallback (UPI intent can fail)
+      // On desktop: UPI-only is fine (uses QR/VPA, no intent issues)
+      if (isMobile) {
+        options.method = {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: false,
+          emi: false,
+          paylater: false,
+        };
+      } else {
+        options.method = {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false,
+          emi: false,
+          paylater: false,
+        };
+      }
 
       const rzp = new Razorpay(options);
 
       rzp.on('payment.failed', function (response) {
         console.error('Payment failed:', response.error);
+        try { sessionStorage.removeItem('pendingPayment'); } catch(e) {}
         showPaymentError(response.error.description || 'Payment failed. Please try again.');
         const btn = document.getElementById('btn-' + plan);
         if (btn) btn.removeAttribute('disabled');
@@ -1620,30 +1675,29 @@
       rzp.open();
     }
 
-    async function activateSubscription(plan, cycle, paymentId, subscriptionId, signature) {
-      showPaymentOverlay('Activating your plan...', 'Payment received! Setting up your ' + (plan === 'pro' ? 'Pro' : 'Business') + ' plan.');
+    async function verifyAndActivate(plan, cycle, paymentId, orderId, signature) {
+      showPaymentOverlay('Verifying payment...', 'Payment received! Activating your ' + (plan === 'pro' ? 'Pro' : 'Business') + ' plan.');
 
       const btn = document.getElementById('btn-' + plan);
 
       try {
-        const activate = functions.httpsCallable('activateSubscription');
-        const result = await activate({
+        const verifyFn = functions.httpsCallable('verifyPayment');
+        const result = await verifyFn({
           plan: plan,
           cycle: cycle,
           razorpayPaymentId: paymentId,
-          razorpaySubscriptionId: subscriptionId,
+          razorpayOrderId: orderId,
           razorpaySignature: signature || '',
         });
 
         if (result.data.success) {
-          try { sessionStorage.removeItem('pendingPayment'); } catch(e) {}
           showPaymentSuccess(plan);
         } else {
-          showPaymentError('Payment received but activation failed. Your plan will activate automatically within 5 minutes.');
+          showPaymentError('Payment received but verification failed. Your plan will activate automatically within 5 minutes.');
         }
       } catch (err) {
-        console.error('Activation error:', err);
-        // Payment was captured — webhook will handle activation
+        console.error('Verification error:', err);
+        // Payment was captured — webhook will handle activation as backup
         showPaymentError('Payment received. Your plan will activate automatically within a few minutes. If not, please contact support.');
       } finally {
         if (btn) btn.removeAttribute('disabled');

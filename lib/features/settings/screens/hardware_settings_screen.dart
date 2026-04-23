@@ -8,8 +8,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:retaillite/core/design/app_colors.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
+import 'package:retaillite/core/services/qz_tray_service.dart';
 import 'package:retaillite/core/services/thermal_printer_service.dart';
 import 'package:retaillite/core/services/sunmi_printer_service.dart';
 import 'package:retaillite/core/services/web_bluetooth_printer_service.dart';
@@ -42,6 +48,17 @@ class _HardwareSettingsScreenState
   List<String> _windowsPrinters = [];
   bool _isLoadingUsbPrinters = false;
 
+  // System printer state (direct print)
+  List<Printer> _systemPrinters = [];
+  bool _isLoadingSystemPrinters = false;
+
+  // QZ Tray state (web only) — raw ESC/POS printing that bypasses Chrome dialog
+  bool _qzAvailable = false;
+  bool _qzEnabled = false;
+  bool _qzLoading = false;
+  List<String> _qzPrinters = [];
+  String? _qzSelectedPrinter;
+
   final _barcodePrefixController = TextEditingController();
   final _barcodeSuffixController = TextEditingController();
   final _receiptFooterController = TextEditingController();
@@ -63,6 +80,14 @@ class _HardwareSettingsScreenState
       if (UsbPrinterService.isAvailable) {
         unawaited(_loadWindowsPrinters());
       }
+
+      // Load system printers for direct print
+      unawaited(_loadSystemPrinters());
+
+      // Load QZ Tray state (web only)
+      if (kIsWeb) {
+        unawaited(_refreshQzTray());
+      }
     });
   }
 
@@ -83,12 +108,37 @@ class _HardwareSettingsScreenState
     });
 
     try {
+      final permissionOk =
+          await ThermalPrinterService.ensureBluetoothPermissions();
+      if (!permissionOk) {
+        if (mounted) {
+          setState(() => _isScanning = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Bluetooth permission denied. Allow Nearby devices and Location to scan printers.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final devices = await ThermalPrinterService.getPairedDevices();
       if (mounted) {
         setState(() {
           _scannedDevices = devices;
           _isScanning = false;
         });
+        if (devices.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No paired Bluetooth printers found. Pair printer in phone Bluetooth settings, then scan again.',
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -105,9 +155,28 @@ class _HardwareSettingsScreenState
       context,
     ).showSnackBar(SnackBar(content: Text('Connecting to ${device.name}...')));
 
+    final permissionOk =
+        await ThermalPrinterService.ensureBluetoothPermissions();
+    if (!permissionOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Bluetooth permission denied. Enable permissions in Android app settings.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
     final success = await ThermalPrinterService.connect(device);
     if (success) {
       await ThermalPrinterService.savePrinter(device);
+      await ref
+          .read(printerProvider.notifier)
+          .setPrinterType(PrinterTypeOption.bluetooth);
       await ref
           .read(printerProvider.notifier)
           .connectPrinter(device.name, device.address);
@@ -232,13 +301,51 @@ class _HardwareSettingsScreenState
         break;
 
       case PrinterTypeOption.system:
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'System printer: Use the print dialog when printing a receipt',
+        final sysName = PrinterStorage.getSystemPrinterName();
+        final sysUrl = PrinterStorage.getSystemPrinterUrl();
+        if (sysName.isNotEmpty && sysUrl.isNotEmpty) {
+          final printer = Printer(url: sysUrl, name: sysName);
+          final testPdf = pw.Document();
+          testPdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.roll80,
+              build: (ctx) => pw.Column(
+                children: [
+                  pw.Text(
+                    'Test Print',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text('Direct print is working!'),
+                  pw.Text('Printer: $sysName'),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+          final ok = await Printing.directPrintPdf(
+            printer: printer,
+            onLayout: (_) => testPdf.save(),
+          );
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                ok ? 'Test print sent to $sysName!' : 'Print failed',
+              ),
+              backgroundColor: ok ? AppColors.success : AppColors.error,
+            ),
+          );
+        } else {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No printer selected — select one above for direct print',
+              ),
+            ),
+          );
+        }
         break;
     }
   }
@@ -320,6 +427,285 @@ class _HardwareSettingsScreenState
     }
   }
 
+  // ─── System Printer Methods (Direct Print) ───
+
+  Future<void> _loadSystemPrinters() async {
+    setState(() => _isLoadingSystemPrinters = true);
+    try {
+      final printers = await Printing.listPrinters();
+      if (mounted) {
+        setState(() {
+          _systemPrinters = printers;
+          _isLoadingSystemPrinters = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSystemPrinters = false);
+      }
+    }
+  }
+
+  Future<void> _selectSystemPrinter(Printer printer) async {
+    await PrinterStorage.saveSystemPrinter(printer.name, printer.url);
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Direct print set to: ${printer.name}'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
+  Future<void> _clearSystemPrinter() async {
+    await PrinterStorage.clearSystemPrinter();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Direct print disabled — will use print dialog'),
+        ),
+      );
+    }
+  }
+
+  // ─── QZ Tray (web-only raw ESC/POS print — bypasses Chrome dialog) ───
+
+  Future<void> _refreshQzTray() async {
+    setState(() => _qzLoading = true);
+    final avail = await QzTrayService.isAvailable();
+    final enabled = await QzTrayService.isEnabled();
+    final selected = await QzTrayService.getSelectedPrinter();
+    final printers = avail ? await QzTrayService.listPrinters() : <String>[];
+    if (!mounted) return;
+    setState(() {
+      _qzAvailable = avail;
+      _qzEnabled = enabled;
+      _qzSelectedPrinter = selected;
+      _qzPrinters = printers;
+      _qzLoading = false;
+    });
+  }
+
+  Future<void> _toggleQzEnabled(bool v) async {
+    await QzTrayService.setEnabled(v);
+    if (mounted) setState(() => _qzEnabled = v);
+  }
+
+  Future<void> _selectQzPrinter(String? name) async {
+    if (name == null) return;
+    await QzTrayService.setSelectedPrinter(name);
+    if (mounted) setState(() => _qzSelectedPrinter = name);
+  }
+
+  Future<void> _testQzPrint() async {
+    final name = _qzSelectedPrinter;
+    if (name == null) return;
+    final bytes = <int>[
+      0x1B, 0x40, // init
+      0x1B, 0x61, 0x01, // center
+      ...'Tulasi Stores\n'.codeUnits,
+      ...'QZ Tray test print\n'.codeUnits,
+      ...'Width + orientation OK\n\n\n'.codeUnits,
+      0x1D, 0x56, 0x01, // partial cut
+    ];
+    final ok = await QzTrayService.printRaw(
+      printerName: name,
+      data: Uint8List.fromList(bytes),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Test sent to $name' : 'Test print failed'),
+        backgroundColor: ok ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  Widget _buildSetupStep(ThemeData theme, String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(right: 8, top: 1),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.outline),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQzTrayCard(ThemeData theme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _qzAvailable ? Icons.check_circle : Icons.cancel,
+                  color: _qzAvailable ? AppColors.success : AppColors.error,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Silent Print (QZ Tray)',
+                  style: theme.textTheme.titleSmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Re-check',
+                  icon: _qzLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  onPressed: _qzLoading ? null : _refreshQzTray,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _qzAvailable
+                  ? 'Bypasses Chrome print dialog — prints receipts directly '
+                        'to the thermal printer with correct size and '
+                        'orientation. No per-browser setup needed.'
+                  : 'Not detected on this PC. Download and run the setup '
+                        'script below — it installs QZ Tray and trusts the '
+                        'certificate automatically (free, one-time).',
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.outline),
+            ),
+            const SizedBox(height: 12),
+            if (!_qzAvailable) ...[
+              // Download the one-click setup .bat (served from the web build)
+              FilledButton.icon(
+                icon: const Icon(Icons.download, size: 16),
+                label: const Text('Download Print Setup (one-click .bat)'),
+                onPressed: () {
+                  // Direct Firebase Storage URL — always available, no web build required
+                  const url =
+                      'https://firebasestorage.googleapis.com/v0/b/'
+                      'login-radha.firebasestorage.app/o/'
+                      'downloads%2Fqz-tray-setup.bat?alt=media';
+                  // ignore: deprecated_member_use
+                  launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              // Numbered steps guide
+              _buildSetupStep(
+                theme,
+                '1',
+                'Click the button above — your browser downloads qz-tray-setup.bat',
+              ),
+              _buildSetupStep(
+                theme,
+                '2',
+                'Double-click the downloaded file to run it',
+              ),
+              _buildSetupStep(
+                theme,
+                '3',
+                'The script installs QZ Tray (if needed) and trusts its certificate automatically',
+              ),
+              _buildSetupStep(
+                theme,
+                '4',
+                'Come back here and click the ↻ refresh button above',
+              ),
+              const SizedBox(height: 6),
+              // Manual fallback for advanced users
+              TextButton.icon(
+                icon: const Icon(Icons.security_outlined, size: 14),
+                label: const Text(
+                  'Manual cert trust (if script doesn\'t work)',
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.outline,
+                  textStyle: const TextStyle(fontSize: 11),
+                ),
+                onPressed: () {
+                  // ignore: deprecated_member_use
+                  launchUrl(
+                    Uri.parse('https://localhost:8182'),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+              ),
+            ],
+            if (_qzAvailable) ...[
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Use QZ Tray for receipt printing'),
+                subtitle: const Text(
+                  'Silent, correctly-sized print. Falls back to print dialog '
+                  'if QZ Tray is unreachable.',
+                ),
+                value: _qzEnabled,
+                onChanged: _toggleQzEnabled,
+              ),
+              if (_qzEnabled) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Thermal printer',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  initialValue: _qzPrinters.contains(_qzSelectedPrinter)
+                      ? _qzSelectedPrinter
+                      : null,
+                  items: _qzPrinters
+                      .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                      .toList(),
+                  onChanged: _selectQzPrinter,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Test print'),
+                  onPressed: _qzSelectedPrinter == null ? null : _testQzPrint,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -337,6 +723,9 @@ class _HardwareSettingsScreenState
           _buildSectionHeader(theme, l10n.printer),
           _buildPrinterTypeCard(theme, printerState),
           const SizedBox(height: 16),
+          if (kIsWeb) ...[_buildQzTrayCard(theme), const SizedBox(height: 16)],
+          if (printerState.printerType == PrinterTypeOption.system)
+            _buildSystemPrinterSection(theme),
           if (printerState.printerType == PrinterTypeOption.bluetooth)
             _buildBluetoothSection(theme, printerState),
           if (printerState.printerType == PrinterTypeOption.wifi)
@@ -689,6 +1078,36 @@ class _HardwareSettingsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Android Bluetooth setup',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '1) Pair printer in phone Bluetooth settings\n2) Tap Scan Printers\n3) Tap link icon to connect\n4) Use Test Print',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: openAppSettings,
+                        icon: const Icon(Icons.settings),
+                        label: const Text('Open App Settings'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // Connection status
                 Row(
                   children: [
@@ -924,6 +1343,130 @@ class _HardwareSettingsScreenState
                     ],
                   ],
                 ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  // ─── System Printer Section (Direct Print) ───
+  Widget _buildSystemPrinterSection(ThemeData theme) {
+    final savedName = PrinterStorage.getSystemPrinterName();
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.print,
+                      color: savedName.isNotEmpty
+                          ? AppColors.success
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            savedName.isNotEmpty
+                                ? savedName
+                                : 'No printer selected',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            savedName.isNotEmpty
+                                ? 'Direct print enabled (no dialog)'
+                                : 'Select a printer to print directly',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: savedName.isNotEmpty
+                                  ? AppColors.success
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (savedName.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: _clearSystemPrinter,
+                        tooltip: 'Use print dialog instead',
+                      ),
+                    IconButton(
+                      icon: _isLoadingSystemPrinters
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      onPressed: _isLoadingSystemPrinters
+                          ? null
+                          : _loadSystemPrinters,
+                      tooltip: 'Refresh printer list',
+                    ),
+                  ],
+                ),
+
+                if (_systemPrinters.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select printer for direct print:',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  ..._systemPrinters.map(
+                    (printer) => ListTile(
+                      leading: Icon(
+                        printer.isDefault ? Icons.star : Icons.print,
+                        color: printer.name == savedName
+                            ? AppColors.success
+                            : null,
+                      ),
+                      title: Text(printer.name),
+                      subtitle: printer.isDefault
+                          ? const Text(
+                              'Default',
+                              style: TextStyle(fontSize: 11),
+                            )
+                          : null,
+                      trailing: printer.name == savedName
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                            )
+                          : TextButton(
+                              onPressed: () => _selectSystemPrinter(printer),
+                              child: const Text('Select'),
+                            ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ] else if (!_isLoadingSystemPrinters) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      'No printers found. Click refresh to scan.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

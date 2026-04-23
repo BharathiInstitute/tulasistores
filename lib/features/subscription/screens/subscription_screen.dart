@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -289,10 +294,47 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   /// subscriptionPlanProvider, so the UI updates automatically after payment.
   Future<void> _handleUpgrade(String planKey) async {
     final cycle = _isAnnual ? 'annual' : 'monthly';
-    final uri = Uri.parse(
-      'https://stores.tulasierp.com/src/pages/pricing.html?plan=$planKey&cycle=$cycle',
-    );
 
+    // Get a custom token so the pricing page signs in as the correct user
+    String? token;
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        // On Windows desktop, the cloud_functions SDK doesn't reliably
+        // attach auth headers. Call the function via direct HTTP instead.
+        token = await _getPaymentTokenViaHttp();
+      } else {
+        final callable = FirebaseFunctions.instanceFor(region: 'asia-south1')
+            .httpsCallable('createPaymentToken');
+        final result = await callable.call<Map<String, dynamic>>({});
+        token = result.data['token'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Failed to get payment token: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Authentication error: $e')),
+        );
+      }
+      return;
+    }
+
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not authenticate. Please sign out and sign back in, then try again.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final url =
+        'https://stores.tulasierp.com/src/pages/pricing.html?plan=$planKey&cycle=$cycle&token=${Uri.encodeComponent(token)}';
+
+    final uri = Uri.parse(url);
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,5 +345,32 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
       );
     }
+  }
+
+  /// Calls createPaymentToken via direct HTTP for Windows desktop,
+  /// bypassing the cloud_functions SDK which doesn't reliably attach
+  /// auth headers on desktop platforms.
+  Future<String?> _getPaymentTokenViaHttp() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    if (idToken == null) throw Exception('Not signed in');
+
+    final response = await http.post(
+      Uri.parse(
+        'https://asia-south1-login-radha.cloudfunctions.net/createPaymentToken',
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: json.encode({'data': {}}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Server error ${response.statusCode}: ${response.body}');
+    }
+
+    final body = json.decode(response.body) as Map<String, dynamic>;
+    final result = body['result'] as Map<String, dynamic>?;
+    return result?['token'] as String?;
   }
 }

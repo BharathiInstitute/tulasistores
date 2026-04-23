@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +14,7 @@ import 'package:retaillite/features/auth/providers/auth_provider.dart';
 import 'package:retaillite/features/auth/widgets/auth_layout.dart';
 import 'package:retaillite/features/auth/widgets/auth_social_section.dart';
 import 'package:retaillite/features/auth/widgets/password_strength_indicator.dart';
+import 'package:retaillite/features/auth/widgets/windows_webview_login.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -46,6 +48,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _otpError;
   int _otpCooldownSeconds = 0;
   Timer? _otpCooldownTimer;
+
+  bool get _isWindowsDesktop =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
   void _startOtpCooldown() {
     _otpCooldownSeconds = 60;
@@ -132,8 +137,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
                     ),
-                    onPressed: () =>
-                        setDialogState(() => obscure = !obscure),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
                   ),
                 ),
               ),
@@ -167,9 +171,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       } else if (mounted) {
                         final error = ref.read(authErrorProvider);
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error)),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(error)));
                         }
                       }
                     },
@@ -361,7 +365,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
     final error = ref.watch(authErrorProvider);
+
+    // Windows: show embedded WebView when desktop login URL is set
+    if (_isWindowsDesktop && authState.desktopLoginUrl != null) {
+      return WindowsWebViewLogin(
+        url: authState.desktopLoginUrl!,
+        linkCode: authState.desktopLinkCode,
+        expiresAt: authState.desktopLinkExpiresAt,
+        onCancel: () {
+          ref.read(authNotifierProvider.notifier).cancelDesktopAuth();
+        },
+      );
+    }
 
     return AuthLayout(
       title: 'Create Account',

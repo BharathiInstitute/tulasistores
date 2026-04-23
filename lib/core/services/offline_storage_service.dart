@@ -58,6 +58,8 @@ class PrinterStorage {
   static const String _wifiIpKey = 'printer_wifi_ip';
   static const String _wifiPortKey = 'printer_wifi_port';
   static const String _usbPrinterNameKey = 'printer_usb_name';
+  static const String _systemPrinterNameKey = 'printer_system_name';
+  static const String _systemPrinterUrlKey = 'printer_system_url';
   static const String _openCashDrawerKey = 'printer_open_cash_drawer';
   static const String _printCopiesKey = 'printer_print_copies';
   static const String _barcodePrefixKey = 'barcode_prefix';
@@ -202,6 +204,32 @@ class PrinterStorage {
   static Future<void> saveUsbPrinterName(String name) async {
     await _ensurePrefs();
     await _prefs?.setString(_usbPrinterNameKey, name);
+  }
+
+  // ── System printer settings (direct print without dialog) ──
+
+  /// Get saved system printer name
+  static String getSystemPrinterName() {
+    return _prefs?.getString(_systemPrinterNameKey) ?? '';
+  }
+
+  /// Get saved system printer URL
+  static String getSystemPrinterUrl() {
+    return _prefs?.getString(_systemPrinterUrlKey) ?? '';
+  }
+
+  /// Save system printer name and URL for direct printing
+  static Future<void> saveSystemPrinter(String name, String url) async {
+    await _ensurePrefs();
+    await _prefs?.setString(_systemPrinterNameKey, name);
+    await _prefs?.setString(_systemPrinterUrlKey, url);
+  }
+
+  /// Clear saved system printer
+  static Future<void> clearSystemPrinter() async {
+    await _ensurePrefs();
+    await _prefs?.remove(_systemPrinterNameKey);
+    await _prefs?.remove(_systemPrinterUrlKey);
   }
 
   // ── Cash drawer settings ──
