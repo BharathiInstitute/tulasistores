@@ -20,10 +20,11 @@ import 'package:retaillite/core/design/design_system.dart';
 import 'package:retaillite/core/services/privacy_consent_service.dart';
 import 'package:retaillite/core/services/user_metrics_service.dart';
 import 'package:retaillite/core/services/payment_link_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:retaillite/core/services/thermal_printer_service.dart';
-import 'package:retaillite/core/services/qz_tray_service.dart';
+import 'package:retaillite/core/services/web_bluetooth_printer_service.dart';
+import 'package:retaillite/core/services/web_serial_printer_service.dart';
 import 'package:retaillite/main.dart' show appVersion, appBuildNumber;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:retaillite/router/app_router.dart';
 import 'package:retaillite/shared/widgets/shop_logo_widget.dart';
 
@@ -60,12 +61,18 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
   List<String> _availablePrinters = [];
   bool _isLoadingPrinters = false;
 
-  // QZ Tray state (silent raw ESC/POS printing for Chrome)
-  bool _qzAvailable = false;
-  bool _qzEnabled = false;
-  bool _qzLoading = false;
-  List<String> _qzPrinters = [];
-  String? _qzSelectedPrinter;
+  // Android Bluetooth printer state
+  List<PrinterDevice> _btScannedDevices = [];
+  bool _isBtScanning = false;
+
+  // Web Bluetooth printer state
+  bool _webBtConnecting = false;
+
+  // Web Serial (USB) printer state
+  bool _webSerialConnecting = false;
+
+  // Periodically rebuilds the printer status indicators
+  Timer? _printerStatusTimer;
 
   @override
   void initState() {
@@ -73,9 +80,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     final user = ref.read(currentUserProvider);
     _loadSubscription();
     _loadAvailablePrinters();
-    if (kIsWeb) {
-      _refreshQzTray();
-    }
     _shopNameController = TextEditingController(text: user?.shopName ?? '');
     _ownerNameController = TextEditingController(text: user?.ownerName ?? '');
     _contactNumberController = TextEditingController(text: user?.phone ?? '');
@@ -90,10 +94,21 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           user?.settings.receiptFooter ??
           '1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction.\n3. Warranty as per manufacturer terms.',
     );
+
+    // Connection names are read directly from the static services on every
+    // build() so they are always current — no local state cache needed.
+    // Refresh the status badge every 2 s so GATT reconnect / port changes
+    // are reflected without needing any other user interaction.
+    if (kIsWeb) {
+      _printerStatusTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
   void dispose() {
+    _printerStatusTimer?.cancel();
     _shopNameController.dispose();
     _ownerNameController.dispose();
     _contactNumberController.dispose();
@@ -117,61 +132,51 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     if (mounted) setState(() => _isLoadingPrinters = false);
   }
 
-  // ─── QZ Tray (Chrome silent raw ESC/POS printing) ───
-  Future<void> _refreshQzTray() async {
-    if (!kIsWeb) return;
-    setState(() => _qzLoading = true);
-    final avail = await QzTrayService.isAvailable();
-    final enabled = await QzTrayService.isEnabled();
-    final selected = await QzTrayService.getSelectedPrinter();
-    final printers = avail ? await QzTrayService.listPrinters() : <String>[];
-    if (!mounted) return;
-    setState(() {
-      _qzAvailable = avail;
-      _qzEnabled = enabled;
-      _qzSelectedPrinter = selected;
-      _qzPrinters = printers;
-      _qzLoading = false;
-    });
-  }
-
-  Future<void> _toggleQzEnabled(bool v) async {
-    await QzTrayService.setEnabled(v);
-    if (mounted) setState(() => _qzEnabled = v);
-  }
-
-  Future<void> _selectQzPrinter(String? name) async {
-    if (name == null) return;
-    await QzTrayService.setSelectedPrinter(name);
-    if (mounted) setState(() => _qzSelectedPrinter = name);
-  }
-
-  Future<void> _testQzPrint() async {
-    final name = _qzSelectedPrinter;
-    if (name == null) return;
-    final bytes = <int>[
-      0x1B, 0x40, // init
-      0x1B, 0x61, 0x01, // center
-      ...'Tulasi Stores\n'.codeUnits,
-      ...'QZ Tray test print\n'.codeUnits,
-      ...'Width + orientation OK\n\n\n'.codeUnits,
-      0x1D, 0x56, 0x01, // partial cut
-    ];
-    final ok = await QzTrayService.printRaw(
-      printerName: name,
-      data: Uint8List.fromList(bytes),
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Test sent to $name' : 'Test print failed'),
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-      ),
-    );
-  }
-
   Future<void> _handleTestPrint() async {
     final messenger = ScaffoldMessenger.of(context);
+    final printerType = ref.read(printerProvider).printerType;
+
+    // Web Serial (USB) — direct ESC/POS via Chrome Web Serial API
+    if (kIsWeb && printerType == PrinterTypeOption.webSerial) {
+      if (!WebSerialPrinterService.isConnected) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('No USB port selected. Tap "Select USB Port" first.'),
+          ),
+        );
+        return;
+      }
+      final success = await WebSerialPrinterService.printTestPage();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Test print sent!' : 'Print failed'),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Web Bluetooth — direct ESC/POS via Chrome Web Bluetooth API
+    if (kIsWeb && printerType == PrinterTypeOption.webBluetooth) {
+      if (!WebBluetoothPrinterService.isConnected) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No Bluetooth printer connected. Tap "Select Printer" first.',
+            ),
+          ),
+        );
+        return;
+      }
+      final success = await WebBluetoothPrinterService.printTestPage();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Test print sent!' : 'Print failed'),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+      return;
+    }
 
     if (!kIsWeb && Platform.isWindows) {
       final usbName = UsbPrinterService.getSavedPrinterName();
@@ -214,6 +219,111 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
             .read(printerProvider.notifier)
             .setPrinterType(PrinterTypeOption.usb);
       }
+    }
+  }
+
+  // ─── Android Bluetooth Printer ───
+  Future<void> _scanBluetoothPrinters() async {
+    setState(() {
+      _isBtScanning = true;
+      _btScannedDevices = [];
+    });
+    final permOk = await ThermalPrinterService.ensureBluetoothPermissions();
+    if (!permOk) {
+      if (mounted) {
+        setState(() => _isBtScanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Bluetooth permission denied. Tap to open app settings.',
+            ),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: openAppSettings,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      final devices = await ThermalPrinterService.getPairedDevices();
+      if (mounted) {
+        setState(() {
+          _btScannedDevices = devices;
+          _isBtScanning = false;
+        });
+        if (devices.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No paired printers found. Pair your printer in Android Bluetooth settings first.',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isBtScanning = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _connectToBluetoothPrinter(PrinterDevice device) async {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Connecting to ${device.name}...')));
+    final permOk = await ThermalPrinterService.ensureBluetoothPermissions();
+    if (!permOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bluetooth permission denied')),
+        );
+      }
+      return;
+    }
+    final success = await ThermalPrinterService.connect(device);
+    if (success) {
+      await ThermalPrinterService.savePrinter(device);
+      await ref
+          .read(printerProvider.notifier)
+          .setPrinterType(PrinterTypeOption.bluetooth);
+      await ref
+          .read(printerProvider.notifier)
+          .connectPrinter(device.name, device.address);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connected to ${device.name}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Connection failed. Make sure the printer is on and paired.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _disconnectBluetoothPrinter() async {
+    await ThermalPrinterService.disconnect();
+    await ref.read(printerProvider.notifier).disconnectPrinter();
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Printer disconnected')));
     }
   }
 
@@ -1776,208 +1886,510 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
     );
   }
 
-  Widget _buildQzTraySectionCard() {
-    final theme = Theme.of(context);
-    return _SectionCard(
-      icon: Icons.cloud_download_outlined,
-      iconColor: AppColors.success,
-      title: 'Silent Print (Chrome)',
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: (_qzAvailable ? AppColors.success : Colors.grey)
-                  .withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
+  // ============ WEB BLUETOOTH SECTION ============
+  Widget _buildWebBluetoothSection() {
+    final isConnected = WebBluetoothPrinterService.isConnected;
+    final isSupported = WebBluetoothPrinterService.isSupported;
+
+    if (!isSupported) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: AppColors.error),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Web Bluetooth is not supported in this browser. '
+                'Use Chrome on Android or Chrome on desktop over HTTPS.',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _qzAvailable ? Icons.check_circle : Icons.cancel,
-                  size: 12,
-                  color: _qzAvailable ? AppColors.success : Colors.grey,
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel('Bluetooth Printer (Chrome)'),
+        const SizedBox(height: 4),
+        const Text(
+          'Power on your printer, tap Select Printer, then choose it from the Chrome device picker.',
+          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(
+              Icons.bluetooth_connected,
+              color: isConnected ? AppColors.success : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isConnected
+                    ? (WebBluetoothPrinterService.connectedDeviceName.isNotEmpty
+                          ? WebBluetoothPrinterService.connectedDeviceName
+                          : 'Bluetooth Printer')
+                    : 'No printer selected',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isConnected ? AppColors.success : AppColors.textMuted,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  _qzAvailable ? 'Ready' : 'Not set up',
-                  style: TextStyle(
-                    color: _qzAvailable ? AppColors.success : Colors.grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _webBtConnecting
+                    ? null
+                    : () async {
+                        setState(() => _webBtConnecting = true);
+                        try {
+                          final ok = await WebBluetoothPrinterService.connect();
+                          if (ok) {
+                            // Update Riverpod state so the badge and print routing work
+                            await ref
+                                .read(printerProvider.notifier)
+                                .setPrinterType(PrinterTypeOption.webBluetooth);
+                            ref
+                                .read(printerProvider.notifier)
+                                .setConnectionStatus(true);
+                            if (mounted) {
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Printer connected!'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not connect. Make sure the printer is on and in range.',
+                                  ),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
+                        } finally {
+                          if (mounted) setState(() => _webBtConnecting = false);
+                        }
+                      },
+                icon: _webBtConnecting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.bluetooth_searching),
+                label: Text(
+                  _webBtConnecting ? 'Connecting…' : 'Select Printer',
+                ),
+              ),
+            ),
+            if (isConnected) ...[
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  WebBluetoothPrinterService.disconnect();
+                  ref.read(printerProvider.notifier).setConnectionStatus(false);
+                  setState(() {});
+                },
+                icon: const Icon(Icons.link_off),
+                label: const Text('Disconnect'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ============ WEB SERIAL (USB) SECTION ============
+  Widget _buildWebSerialSection() {
+    final isConnected = WebSerialPrinterService.isConnected;
+    final isSupported = WebSerialPrinterService.isSupported;
+
+    // Web Serial is desktop Chrome/Edge only — not available on Android/iOS
+    if (!isSupported) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel('USB Printer (Chrome Web Serial)'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.phone_android, size: 16, color: AppColors.textMuted),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'USB printing via Web Serial is only available on Chrome/Edge on Windows, macOS, or Linux.\n'
+                    'On Android, use the Bluetooth section above instead.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: 'Re-check',
-            icon: _qzLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh, size: 18),
-            onPressed: _qzLoading ? null : _refreshQzTray,
-          ),
         ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _qzAvailable
-                ? 'Prints receipts directly to the thermal printer — no Chrome '
-                      'print dialog, correct 58mm width, correct orientation.'
-                : 'Fixes wrong-size / upside-down receipts from Chrome. '
-                      'Download and run the setup file below — it installs '
-                      'everything automatically (free, one-time per PC).',
-            style: TextStyle(fontSize: 13, color: theme.colorScheme.outline),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel('USB Printer (Chrome Web Serial)'),
+        const SizedBox(height: 4),
+        // ── What USB Serial actually requires ─────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
           ),
-          const SizedBox(height: 16),
-          if (!_qzAvailable) ...[
-            FilledButton.icon(
-              icon: const Icon(Icons.download, size: 18),
-              label: const Text('Download Print Setup (.bat)'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: AppColors.warning),
+                  SizedBox(width: 6),
+                  Text(
+                    'USB Serial requirements',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Chrome can only see printers that appear as a COM port '
+                '(CDC-serial or virtual COM port driver).\n'
+                'If the picker shows "No compatible devices found", your '
+                'printer uses the Windows USB Printer class — it will not '
+                'appear here.\n'
+                '→ Use the Bluetooth section above instead, or install a '
+                'virtual COM port driver for your printer model.',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Icon(
+              Icons.usb,
+              color: isConnected ? AppColors.success : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isConnected
+                    ? WebSerialPrinterService.connectedPortName
+                    : 'No port selected',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isConnected ? AppColors.success : AppColors.textMuted,
                 ),
               ),
-              onPressed: () {
-                // Direct Firebase Storage URL — always available, no web build required
-                const url =
-                    'https://firebasestorage.googleapis.com/v0/b/'
-                    'login-radha.firebasestorage.app/o/'
-                    'downloads%2Fqz-tray-setup.bat?alt=media';
-                // ignore: deprecated_member_use
-                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-              },
-            ),
-            const SizedBox(height: 14),
-            _buildQzStep(
-              '1',
-              'Click the button above — your browser downloads '
-                  'qz-tray-setup.bat',
-            ),
-            _buildQzStep('2', 'Double-click the downloaded file to run it'),
-            _buildQzStep(
-              '3',
-              'The script installs QZ Tray (if needed) and trusts its '
-                  'certificate — fully automatic',
-            ),
-            _buildQzStep(
-              '4',
-              'Come back and click the ↻ refresh button above — the badge '
-                  'turns green',
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              icon: const Icon(Icons.security_outlined, size: 14),
-              label: const Text(
-                'Manual certificate trust (advanced — only if the script '
-                'didn\'t work)',
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.outline,
-                textStyle: const TextStyle(fontSize: 11),
-                padding: EdgeInsets.zero,
-                alignment: Alignment.centerLeft,
-              ),
-              onPressed: () {
-                // ignore: deprecated_member_use
-                launchUrl(
-                  Uri.parse('https://localhost:8182'),
-                  mode: LaunchMode.externalApplication,
-                );
-              },
             ),
           ],
-          if (_qzAvailable) ...[
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Use silent print for receipts'),
-              subtitle: const Text(
-                'Falls back to Chrome print dialog if QZ Tray is unreachable.',
-              ),
-              value: _qzEnabled,
-              onChanged: _toggleQzEnabled,
-            ),
-            if (_qzEnabled) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Thermal printer',
-                  border: OutlineInputBorder(),
-                  isDense: true,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _webSerialConnecting
+                    ? null
+                    : () async {
+                        setState(() => _webSerialConnecting = true);
+                        try {
+                          final ok = await WebSerialPrinterService.connect();
+                          if (ok) {
+                            await ref
+                                .read(printerProvider.notifier)
+                                .setPrinterType(PrinterTypeOption.webSerial);
+                            ref
+                                .read(printerProvider.notifier)
+                                .setConnectionStatus(true);
+                            if (mounted) {
+                              setState(() {});
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('USB printer connected!'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'No COM port found. If your printer uses USB (not Bluetooth), '
+                                    'it needs a virtual COM port driver to appear in Chrome. '
+                                    'Try the Bluetooth section instead.',
+                                  ),
+                                  backgroundColor: AppColors.error,
+                                  duration: Duration(seconds: 6),
+                                ),
+                              );
+                            }
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _webSerialConnecting = false);
+                          }
+                        }
+                      },
+                icon: _webSerialConnecting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.usb),
+                label: Text(
+                  _webSerialConnecting ? 'Opening…' : 'Select USB Port',
                 ),
-                initialValue: _qzPrinters.contains(_qzSelectedPrinter)
-                    ? _qzSelectedPrinter
-                    : null,
-                items: _qzPrinters
-                    .map((n) => DropdownMenuItem(value: n, child: Text(n)))
-                    .toList(),
-                onChanged: _selectQzPrinter,
               ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.print, size: 16),
-                  label: const Text('Test print'),
-                  onPressed: _qzSelectedPrinter == null ? null : _testQzPrint,
+            ),
+            if (isConnected) ...[
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await WebSerialPrinterService.disconnect();
+                  ref.read(printerProvider.notifier).setConnectionStatus(false);
+                  setState(() {});
+                },
+                icon: const Icon(Icons.link_off),
+                label: const Text('Disconnect'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
                 ),
               ),
             ],
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildQzStep(String number, String text) {
+  // ============ ANDROID BLUETOOTH SECTION ============
+  Widget _buildAndroidBluetoothSection(PrinterState printerState) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            margin: const EdgeInsets.only(right: 10, top: 1),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Step-by-step guide
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Bluetooth Thermal Printer',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '1. Pair your printer in phone Bluetooth settings\n'
+                '2. Tap Scan Printers below\n'
+                '3. Tap Connect next to your printer\n'
+                '4. Use Test Print to verify',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: openAppSettings,
+                icon: const Icon(Icons.settings, size: 16),
+                label: const Text('Open App Settings (permissions)'),
+                style: OutlinedButton.styleFrom(
+                  textStyle: const TextStyle(fontSize: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Connection status row
+        Row(
+          children: [
+            Icon(
+              printerState.isConnected
+                  ? Icons.bluetooth_connected
+                  : Icons.bluetooth_disabled,
+              color: printerState.isConnected ? AppColors.success : Colors.grey,
+              size: 20,
             ),
-            alignment: Alignment.center,
-            child: Text(
-              number,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                printerState.isConnected
+                    ? 'Connected: ${printerState.printerName ?? ''}'
+                    : 'No printer connected',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: printerState.isConnected
+                      ? AppColors.success
+                      : Colors.grey,
+                ),
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Scan / Disconnect buttons
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _isBtScanning ? null : _scanBluetoothPrinters,
+                icon: _isBtScanning
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.search, size: 18),
+                label: Text(_isBtScanning ? 'Scanning...' : 'Scan Printers'),
+              ),
+            ),
+            if (printerState.isConnected) ...[
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _disconnectBluetoothPrinter,
+                icon: const Icon(Icons.link_off, size: 16),
+                label: const Text('Disconnect'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+
+        // Scanned devices
+        if (_btScannedDevices.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Divider(),
+          Text(
+            'Paired printers found (${_btScannedDevices.length}):',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
           ),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface,
+          const SizedBox(height: 8),
+          ..._btScannedDevices.map(
+            (device) => Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.print,
+                  color: printerState.printerAddress == device.address
+                      ? AppColors.success
+                      : null,
+                ),
+                title: Text(device.name),
+                subtitle: Text(
+                  device.address,
+                  style: const TextStyle(fontSize: 11),
+                ),
+                trailing:
+                    printerState.printerAddress == device.address &&
+                        printerState.isConnected
+                    ? const Icon(Icons.check_circle, color: AppColors.success)
+                    : FilledButton(
+                        onPressed: () => _connectToBluetoothPrinter(device),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('Connect'),
+                      ),
               ),
             ),
           ),
         ],
-      ),
+
+        // Test Print (shown when connected)
+        if (printerState.isConnected &&
+            printerState.printerType == PrinterTypeOption.bluetooth) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final ok = await ThermalPrinterService.printTestPage();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok ? 'Test print sent!' : 'Print failed'),
+                      backgroundColor: ok ? AppColors.success : AppColors.error,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.print, size: 16),
+              label: const Text('Test Print'),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -2030,26 +2442,51 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFieldLabel('Select Printer'),
-              _isLoadingPrinters
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : _buildDropdown(printerState.printerName ?? 'None', [
-                      'None',
-                      ..._availablePrinters,
-                      // Include current printer if not in list
-                      if (printerState.printerName != null &&
-                          printerState.printerName != 'None' &&
-                          !_availablePrinters.contains(
-                            printerState.printerName,
-                          ))
-                        printerState.printerName!,
-                    ], onChanged: _selectPrinter),
-              const SizedBox(height: 20),
+              // ── Web: Chrome Web Bluetooth printer picker ──
+              if (kIsWeb) ...[
+                _buildWebBluetoothSection(),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Web: Chrome Web Serial (USB) printer picker ──
+              // Web Serial is supported on Windows/macOS/Linux Chrome, not Android
+              if (kIsWeb && WebSerialPrinterService.isSupported) ...[
+                const Divider(),
+                const SizedBox(height: 12),
+                _buildWebSerialSection(),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Android: Bluetooth thermal printer picker ──
+              if (!kIsWeb && Platform.isAndroid) ...[
+                _buildAndroidBluetoothSection(printerState),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Windows: system / USB printer dropdown ──
+              if (!kIsWeb && Platform.isWindows) ...[
+                _buildFieldLabel('Select Printer'),
+                _isLoadingPrinters
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : _buildDropdown(printerState.printerName ?? 'None', [
+                        'None',
+                        ..._availablePrinters,
+                        // Include current printer if not in list
+                        if (printerState.printerName != null &&
+                            printerState.printerName != 'None' &&
+                            !_availablePrinters.contains(
+                              printerState.printerName,
+                            ))
+                          printerState.printerName!,
+                      ], onChanged: _selectPrinter),
+                const SizedBox(height: 20),
+              ], // end Windows block
+              // Paper width + density for all platforms
               _responsiveFields([
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2118,9 +2555,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
           ),
         ),
         const SizedBox(height: 24),
-
-        // QZ Tray - Silent Chrome printing (web only)
-        if (kIsWeb) ...[_buildQzTraySectionCard(), const SizedBox(height: 24)],
 
         // Barcode Scanner
         _SectionCard(

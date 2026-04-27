@@ -1,8 +1,8 @@
 {
     "changelog":  "Bug fixes and improvements",
-    "version":  "9.7.2",
+    "version":  "10.0.0",
     "exeDownloadUrl":  "https://firebasestorage.googleapis.com/v0/b/login-radha.firebasestorage.app/o/downloads%2Fwindows%2FTulasiStores_Setup.exe?alt=media",
     "storeUrl":  "https://apps.microsoft.com/detail/tulasi-stores",
     "forceUpdate":  false,
-    "buildNumber":  56
+    "buildNumber":  58
 }

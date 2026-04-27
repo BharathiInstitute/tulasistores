@@ -1,6 +1,7 @@
 /// Settings providers for app preferences
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
@@ -265,7 +266,8 @@ enum PrinterTypeOption {
   usb('USB', 'Direct ESC/POS via USB cable'),
   wifi('WiFi', 'Direct ESC/POS via network'),
   sunmi('Sunmi Built-in', 'Built-in printer on Sunmi POS devices'),
-  webBluetooth('Web Bluetooth', 'Print via Chrome Web Bluetooth API');
+  webBluetooth('Web Bluetooth', 'Print via Chrome Web Bluetooth API'),
+  webSerial('Web Serial (USB)', 'Print via Chrome Web Serial API — USB cable');
 
   final String label;
   final String description;
@@ -455,9 +457,17 @@ class PrinterNotifier extends StateNotifier<PrinterState> {
     final cutMode = CutMode.fromString(PrinterStorage.getCutMode());
     final showCopyLabel = PrinterStorage.getShowCopyLabel();
     final showHsnOnReceipt = PrinterStorage.getShowHsnOnReceipt();
-    final printerType = PrinterTypeOption.fromString(
+    var printerType = PrinterTypeOption.fromString(
       PrinterStorage.getPrinterType(),
     );
+    // On web, native types (bluetooth/wifi/usb/sunmi) are not available — fall
+    // back to webBluetooth so the Web Bluetooth section is shown automatically.
+    if (kIsWeb &&
+        printerType != PrinterTypeOption.system &&
+        printerType != PrinterTypeOption.webBluetooth &&
+        printerType != PrinterTypeOption.webSerial) {
+      printerType = PrinterTypeOption.webBluetooth;
+    }
     final printDensity = PrinterStorage.getPrintDensity();
 
     if (savedPrinter != null) {

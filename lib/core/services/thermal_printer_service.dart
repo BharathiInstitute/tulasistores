@@ -582,16 +582,19 @@ class ThermalPrinterService {
   static Future<bool> printTestPage() async {
     if (!await _ensureConnected()) return false;
     try {
-      return await PrintBluetoothThermal.writeBytes(
-        EscPosBuilder.buildTestPage(),
-      );
+      return await _writeChunked(EscPosBuilder.buildTestPage());
     } catch (e) {
       debugPrint('BT print error: $e');
       return false;
     }
   }
 
-  /// Auto-reconnect to saved printer if disconnected
+  /// Auto-reconnect to saved printer if disconnected.
+  ///
+  /// Uses a 10-second timeout — Android BT connections routinely take 5–10 s,
+  /// especially after the printer's idle-sleep kicks in.
+  /// Adds a 600 ms warm-up delay after a fresh connect so the printer
+  /// firmware is ready to receive data.
   static Future<bool> _ensureConnected() async {
     if (await isConnected) return true;
 
@@ -603,9 +606,11 @@ class ThermalPrinterService {
     try {
       final ok = await connect(
         saved,
-      ).timeout(const Duration(seconds: 3), onTimeout: () => false);
+      ).timeout(const Duration(seconds: 10), onTimeout: () => false);
       if (ok) {
-        debugPrint('✅ BT: Auto-reconnected');
+        debugPrint('✅ BT: Auto-reconnected — waiting for printer warm-up');
+        // Allow the printer firmware to initialise the receive channel
+        await Future<void>.delayed(const Duration(milliseconds: 600));
       } else {
         debugPrint('❌ BT: Auto-reconnect failed');
       }
@@ -614,6 +619,31 @@ class ThermalPrinterService {
       debugPrint('❌ BT: Auto-reconnect error: $e');
       return false;
     }
+  }
+
+  /// Write [bytes] to the connected printer in 512-byte chunks.
+  ///
+  /// The Android BT stack (and many cheap thermal printer firmwares) silently
+  /// drops payloads that exceed the MTU or the printer's receive buffer.
+  /// Chunking with a short inter-chunk delay prevents this.
+  static Future<bool> _writeChunked(List<int> bytes) async {
+    const chunkSize = 512;
+    if (bytes.length <= chunkSize) {
+      return PrintBluetoothThermal.writeBytes(bytes);
+    }
+    for (var i = 0; i < bytes.length; i += chunkSize) {
+      final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+      final ok = await PrintBluetoothThermal.writeBytes(bytes.sublist(i, end));
+      if (!ok) {
+        debugPrint('❌ BT: chunk write failed at offset $i');
+        return false;
+      }
+      // Give the printer time to process each chunk
+      if (end < bytes.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    }
+    return true;
   }
 
   static Future<bool> printReceipt({
@@ -633,7 +663,7 @@ class ThermalPrinterService {
   }) async {
     if (!await _ensureConnected()) return false;
     try {
-      return await PrintBluetoothThermal.writeBytes(
+      return await _writeChunked(
         EscPosBuilder.buildReceipt(
           bill: bill,
           shopName: shopName,
@@ -660,7 +690,7 @@ class ThermalPrinterService {
   static Future<bool> sendBytes(List<int> bytes) async {
     if (!await _ensureConnected()) return false;
     try {
-      return await PrintBluetoothThermal.writeBytes(bytes);
+      return await _writeChunked(bytes);
     } catch (e) {
       debugPrint('BT sendBytes error: $e');
       return false;

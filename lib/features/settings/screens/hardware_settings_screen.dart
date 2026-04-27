@@ -19,6 +19,7 @@ import 'package:retaillite/core/services/qz_tray_service.dart';
 import 'package:retaillite/core/services/thermal_printer_service.dart';
 import 'package:retaillite/core/services/sunmi_printer_service.dart';
 import 'package:retaillite/core/services/web_bluetooth_printer_service.dart';
+import 'package:retaillite/core/services/web_serial_printer_service.dart';
 import 'package:retaillite/features/settings/providers/settings_provider.dart';
 import 'package:retaillite/core/services/sync_settings_service.dart';
 import 'package:retaillite/l10n/app_localizations.dart';
@@ -51,6 +52,10 @@ class _HardwareSettingsScreenState
   // System printer state (direct print)
   List<Printer> _systemPrinters = [];
   bool _isLoadingSystemPrinters = false;
+
+  // Web Bluetooth state (web only)
+  bool _webBtConnecting = false;
+  String? _webBtConnectedName;
 
   // QZ Tray state (web only) — raw ESC/POS printing that bypasses Chrome dialog
   bool _qzAvailable = false;
@@ -296,6 +301,22 @@ class _HardwareSettingsScreenState
           SnackBar(
             content: Text(wbSuccess ? 'Test print sent!' : 'Print failed'),
             backgroundColor: wbSuccess ? AppColors.success : AppColors.error,
+          ),
+        );
+        break;
+
+      case PrinterTypeOption.webSerial:
+        if (!WebSerialPrinterService.isConnected) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('No USB port connected')),
+          );
+          return;
+        }
+        final wsSuccess = await WebSerialPrinterService.printTestPage();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(wsSuccess ? 'Test print sent!' : 'Print failed'),
+            backgroundColor: wsSuccess ? AppColors.success : AppColors.error,
           ),
         );
         break;
@@ -732,6 +753,8 @@ class _HardwareSettingsScreenState
             _buildWifiSection(theme),
           if (printerState.printerType == PrinterTypeOption.usb)
             _buildUsbSection(theme),
+          if (printerState.printerType == PrinterTypeOption.webBluetooth)
+            _buildWebBluetoothSection(theme),
           _buildPaperSettingsCard(theme, printerState),
           const SizedBox(height: 16),
           _buildReceiptSettingsCard(theme, printerState),
@@ -1069,6 +1092,214 @@ class _HardwareSettingsScreenState
   }
 
   // ─── Bluetooth Section ───
+  // ─── Web Bluetooth Section (Chrome on Android/Desktop) ───
+  Widget _buildWebBluetoothSection(ThemeData theme) {
+    final isConnected = WebBluetoothPrinterService.isConnected;
+    final isSupported = WebBluetoothPrinterService.isSupported;
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Setup instructions
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chrome Bluetooth setup',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '1) Make sure printer is powered on & discoverable\n'
+                        '2) Tap "Select Printer" — Chrome will show a device picker\n'
+                        '3) Choose your thermal printer from the list\n'
+                        '4) Use "Test Print" to verify\n\n'
+                        'Note: Requires Chrome on Android/Desktop over HTTPS.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (!isSupported)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: AppColors.error),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Web Bluetooth is not supported in this browser. '
+                            'Use Chrome on Android or Chrome on desktop.',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if (isSupported) ...[
+                  // Connection status row
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.bluetooth_connected,
+                        color: isConnected ? AppColors.success : Colors.grey,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _webBtConnectedName ??
+                                  (isConnected
+                                      ? 'Printer connected'
+                                      : 'No printer selected'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              isConnected ? 'Ready to print' : 'Tap Select Printer',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isConnected
+                                    ? AppColors.success
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isConnected ? AppColors.success : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _webBtConnecting
+                              ? null
+                              : () async {
+                                  setState(() => _webBtConnecting = true);
+                                  try {
+                                    final ok =
+                                        await WebBluetoothPrinterService
+                                            .connect();
+                                    if (ok) {
+                                      await ref
+                                          .read(printerProvider.notifier)
+                                          .setPrinterType(
+                                            PrinterTypeOption.webBluetooth,
+                                          );
+                                      if (mounted) {
+                                        setState(
+                                          () => _webBtConnectedName =
+                                              'Bluetooth Printer',
+                                        );
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Printer connected!',
+                                            ),
+                                            backgroundColor: AppColors.success,
+                                          ),
+                                        );
+                                      }
+                                    } else {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Could not connect. Make sure the printer is on and in range.',
+                                            ),
+                                            backgroundColor: AppColors.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _webBtConnecting = false);
+                                    }
+                                  }
+                                },
+                          icon: _webBtConnecting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.bluetooth_searching),
+                          label: Text(
+                            _webBtConnecting
+                                ? 'Connecting…'
+                                : 'Select Printer',
+                          ),
+                        ),
+                      ),
+                      if (isConnected) ...[
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            WebBluetoothPrinterService.disconnect();
+                            setState(() => _webBtConnectedName = null);
+                          },
+                          icon: const Icon(Icons.link_off),
+                          label: const Text('Disconnect'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  // ─── Android Bluetooth Section ───
   Widget _buildBluetoothSection(ThemeData theme, PrinterState printerState) {
     return Column(
       children: [

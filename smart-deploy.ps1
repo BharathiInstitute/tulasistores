@@ -231,7 +231,7 @@ if ($SetupMonitoring) {
     Write-Step "Budget alert setup instructions..."
     Write-Host ""
     Write-Host "  +-------------------------------------------------+" -ForegroundColor Yellow
-    Write-Host "  |  GCP Budget Alerts (manual � requires billing    |" -ForegroundColor Yellow
+    Write-Host "  |  GCP Budget Alerts (manual - requires billing     |" -ForegroundColor Yellow
     Write-Host "  |  admin access via console):                      |" -ForegroundColor Yellow
     Write-Host "  |                                                  |" -ForegroundColor Yellow
     Write-Host "  |  1. Go to: console.cloud.google.com/billing     |" -ForegroundColor White
@@ -252,7 +252,7 @@ if ($SetupMonitoring) {
     Write-Host "  - Backup retention: 30 days auto-delete" -ForegroundColor Green
     Write-Host "  - Budget alerts: follow instructions above" -ForegroundColor Yellow
     Write-Host ""
-    Write-DeployLog "MONITORING | Setup complete � uptime checks + backup retention"
+    Write-DeployLog "MONITORING | Setup complete - uptime checks + backup retention"
     exit 0
 }
 
@@ -334,7 +334,7 @@ if ($Rollback) {
                     Write-DeployLog "ROLLBACK | Windows version.json restored from $($latestWinBackup.Name)"
                     $rollbackPerformed = $true
                 } else {
-                    Write-Warn "gsutil not found � upload installer/version.json manually"
+                    Write-Warn "gsutil not found - upload installer/version.json manually"
                 }
             }
         } else {
@@ -365,7 +365,7 @@ if ($Rollback) {
                     Write-DeployLog "ROLLBACK | Android version.json restored from $($latestAndBackup.Name)"
                     $rollbackPerformed = $true
                 } else {
-                    Write-Warn "gsutil not found � upload installer/android-version.json manually"
+                    Write-Warn "gsutil not found - upload installer/android-version.json manually"
                 }
             }
         } else {
@@ -1314,12 +1314,12 @@ WScript.Quit 0
                     Write-DeployLog "PLAY STORE | AAB v$newVersion uploaded to closed testing"
                 }
                 else {
-                    Write-Warn "Skipped Play Store upload � remember to upload manually!"
+                    Write-Warn "Skipped Play Store upload - remember to upload manually!"
                     Write-DeployLog "PLAY STORE | AAB v$newVersion built but upload skipped"
                 }
             }
             else {
-                Write-Warn "AAB build failed � APK was uploaded to Firebase Storage, but Play Store upload skipped"
+                Write-Warn "AAB build failed - APK was uploaded to Firebase Storage, but Play Store upload skipped"
                 Write-DeployLog "ANDROID AAB FAILED | APK upload OK, AAB failed"
             }
 
@@ -1392,7 +1392,7 @@ WScript.Quit 0
                             Write-Warn "Could not upload qz-tray-setup.bat: $($_.Exception.Message)"
                         }
                     } else {
-                        Write-Warn "No Firebase auth token — skipping qz-tray-setup.bat upload"
+                        Write-Warn "No Firebase auth token - skipping qz-tray-setup.bat upload"
                     }
                 }
 

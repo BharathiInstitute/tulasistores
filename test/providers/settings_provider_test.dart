@@ -116,8 +116,8 @@ void main() {
   // ── PrinterTypeOption enum ──
 
   group('PrinterTypeOption', () {
-    test('has 6 types', () {
-      expect(PrinterTypeOption.values.length, 6);
+    test('has 7 types', () {
+      expect(PrinterTypeOption.values.length, 7);
     });
 
     test('system is not thermal', () {
@@ -148,6 +148,10 @@ void main() {
       expect(
         PrinterTypeOption.fromString('webBluetooth'),
         PrinterTypeOption.webBluetooth,
+      );
+      expect(
+        PrinterTypeOption.fromString('webSerial'),
+        PrinterTypeOption.webSerial,
       );
     });
 

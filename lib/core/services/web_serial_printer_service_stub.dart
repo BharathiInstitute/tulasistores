@@ -1,6 +1,6 @@
 /// Stub implementation for non-web platforms.
 ///
-/// All methods return false / no-op since Web Bluetooth
+/// All methods return false / no-op since Web Serial
 /// is not available outside of a browser.
 library;
 
@@ -8,16 +8,15 @@ import 'dart:typed_data';
 
 import 'package:retaillite/models/bill_model.dart';
 
-class WebBluetoothPrinterService {
-  WebBluetoothPrinterService._();
+class WebSerialPrinterService {
+  WebSerialPrinterService._();
 
   static bool get isSupported => false;
   static bool get isConnected => false;
-  static bool get hasDevice => false;
-  static String get connectedDeviceName => '';
+  static String get connectedPortName => '';
 
   static Future<bool> connect() async => false;
-  static void disconnect() {}
+  static Future<void> disconnect() async {}
   static Future<bool> sendBytes(List<int> bytes) async => false;
 
   static Future<bool> printReceipt({

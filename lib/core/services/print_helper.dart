@@ -8,6 +8,7 @@ import 'package:retaillite/core/services/receipt_service.dart';
 import 'package:retaillite/core/services/sunmi_printer_service.dart';
 import 'package:retaillite/core/services/thermal_printer_service.dart';
 import 'package:retaillite/core/services/web_bluetooth_printer_service.dart';
+import 'package:retaillite/core/services/web_serial_printer_service.dart';
 import 'package:retaillite/features/settings/providers/settings_provider.dart';
 import 'package:retaillite/models/bill_model.dart';
 import 'package:retaillite/models/user_model.dart';
@@ -120,6 +121,21 @@ class PrintHelper {
       switch (printerState.printerType) {
         case PrinterTypeOption.bluetooth:
           if (ThermalPrinterService.isAvailable) {
+            // Show a brief status snackbar so the user knows something is
+            // happening during the BT (re)connect + warm-up phase.
+            final printerName = printerState.printerName;
+            if (!isAutoPrint) {
+              scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    printerName != null && printerName.isNotEmpty
+                        ? 'Connecting to $printerName…'
+                        : 'Connecting to printer…',
+                  ),
+                  duration: const Duration(seconds: 12),
+                ),
+              );
+            }
             directSuccess = await ThermalPrinterService.printReceipt(
               bill: bill,
               shopName: user?.shopName,
@@ -128,6 +144,8 @@ class PrintHelper {
               gstNumber: user?.gstNumber,
               receiptFooter: footer,
             );
+            // Dismiss the connecting snackbar immediately after the print call
+            if (!isAutoPrint) scaffoldMessenger.hideCurrentSnackBar();
           }
           break;
 
@@ -177,8 +195,23 @@ class PrintHelper {
           break;
 
         case PrinterTypeOption.webBluetooth:
-          if (WebBluetoothPrinterService.isSupported &&
-              WebBluetoothPrinterService.isConnected) {
+          if (WebBluetoothPrinterService.isSupported) {
+            if (!WebBluetoothPrinterService.hasDevice) {
+              // No device selected yet — user hasn't gone through the picker
+              if (!isAutoPrint) {
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bluetooth printer not connected. '
+                      'Go to Settings → Hardware and tap "Select Printer" first.',
+                    ),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+              }
+              return;
+            }
+            // sendBytes() handles silent GATT reconnect if connection dropped
             directSuccess = await WebBluetoothPrinterService.printReceipt(
               bill: bill,
               shopName: user?.shopName,
@@ -187,6 +220,32 @@ class PrintHelper {
               gstNumber: user?.gstNumber,
               receiptFooter: footer,
             );
+          }
+          break;
+
+        case PrinterTypeOption.webSerial:
+          if (WebSerialPrinterService.isSupported) {
+            directSuccess = await WebSerialPrinterService.printReceipt(
+              bill: bill,
+              shopName: user?.shopName,
+              shopAddress: user?.address,
+              shopPhone: user?.phone,
+              gstNumber: user?.gstNumber,
+              receiptFooter: footer,
+            );
+          } else {
+            // Web Serial not supported (not Chrome on desktop)
+            if (!isAutoPrint) {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'USB printing requires Chrome on Windows. '
+                    'Use Settings → Hardware to connect.',
+                  ),
+                ),
+              );
+            }
+            return;
           }
           break;
 
@@ -249,9 +308,24 @@ class PrintHelper {
 
       if (directSuccess == false || directSuccess == null) {
         if (!isAutoPrint) {
+          final String msg;
+          if (directSuccess == null) {
+            msg =
+                'Print failed: No printer selected. Go to Settings → Hardware.';
+          } else if (printerState.printerType ==
+              PrinterTypeOption.webBluetooth) {
+            msg =
+                'Bluetooth print failed. Try disconnecting and reconnecting in Settings → Hardware.';
+          } else if (printerState.printerType == PrinterTypeOption.webSerial) {
+            msg =
+                'USB print failed. Reconnect the COM port in Settings → Hardware.';
+          } else {
+            msg =
+                'Print failed. Reconnect your printer in Settings → Hardware.';
+          }
           scaffoldMessenger.showSnackBar(
             SnackBar(
-              content: const Text('Print failed: Printer not connected'),
+              content: Text(msg),
               action: onRetry != null
                   ? SnackBarAction(label: 'Retry', onPressed: onRetry)
                   : null,

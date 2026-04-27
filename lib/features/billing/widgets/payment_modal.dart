@@ -26,6 +26,7 @@ import 'package:retaillite/features/reports/providers/reports_provider.dart';
 
 import 'package:retaillite/models/bill_model.dart';
 import 'package:retaillite/models/customer_model.dart';
+import 'package:retaillite/models/user_model.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:retaillite/core/services/payment_link_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -194,9 +195,21 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
 
         ref.read(cartProvider.notifier).clearCart();
 
+        // Capture everything we need BEFORE popping the modal.
+        // After pop() the PaymentModalState is disposed — ref.read() and
+        // ScaffoldMessenger.of(context) would both fail or silently no-op.
+        final billingMessenger = ScaffoldMessenger.of(context);
+        final capturedPrinterState = ref.read(printerProvider);
+        final capturedUser = ref.read(currentUserProvider);
+
         Navigator.of(context).pop();
 
-        _showBillCompleteDialog(bill);
+        _showBillCompleteDialog(
+          bill,
+          billingMessenger,
+          capturedPrinterState,
+          capturedUser,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -232,23 +245,12 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
     }
   }
 
-  /// Print receipt using the configured printer type
-  Future<void> _printReceipt(
+  void _showBillCompleteDialog(
     BillModel bill,
-    ScaffoldMessengerState scaffoldMessenger, {
-    bool isAutoPrint = false,
-  }) {
-    return PrintHelper.printReceipt(
-      bill: bill,
-      printerState: ref.read(printerProvider),
-      user: ref.read(currentUserProvider),
-      scaffoldMessenger: scaffoldMessenger,
-      isAutoPrint: isAutoPrint,
-      onRetry: () => _printReceipt(bill, scaffoldMessenger),
-    );
-  }
-
-  void _showBillCompleteDialog(BillModel bill) {
+    ScaffoldMessengerState billingMessenger,
+    PrinterState printerState,
+    UserModel? user,
+  ) {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -283,9 +285,22 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
                         Navigator.pop(dialogContext);
-                        await _printReceipt(bill, scaffoldMessenger);
+                        // Use the pre-captured printerState & user — the
+                        // PaymentModalState is disposed at this point so ref
+                        // is no longer accessible.
+                        await PrintHelper.printReceipt(
+                          bill: bill,
+                          printerState: printerState,
+                          user: user,
+                          scaffoldMessenger: billingMessenger,
+                          onRetry: () => PrintHelper.printReceipt(
+                            bill: bill,
+                            printerState: printerState,
+                            user: user,
+                            scaffoldMessenger: billingMessenger,
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.print),
                       label: const Text('Print'),

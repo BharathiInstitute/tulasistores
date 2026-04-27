@@ -7,6 +7,7 @@
 /// Windows 10/11 and cannot be uninstalled).
 library;
 
+import 'dart:async' show unawaited;
 import 'dart:io' show Process;
 
 import 'package:flutter/material.dart';
@@ -77,7 +78,7 @@ class _WindowsWebViewLoginState extends State<WindowsWebViewLogin> {
           _isInitializing = false;
           _initError = e.toString();
         });
-        _openInBrowser();
+        unawaited(_openInBrowser());
       }
     }
   }

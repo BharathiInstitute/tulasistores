@@ -53,10 +53,10 @@ class EscPosBuilder {
     // --- Shop name (centered, double size, bold) ---
     _align(b, 1);
     _bold(b, true);
-    _size(b, w: 1, h: 1); // 2x width, 2x height
+    _size(b, w: 1, h: 1);
     b.add(_encode(shopName));
     b.add([_lf]);
-    _size(b, w: 0, h: 0);
+    _size(b);
     _bold(b, false);
 
     if (shopAddress != null && shopAddress.isNotEmpty) {
@@ -164,7 +164,7 @@ class EscPosBuilder {
     b.add([_lf]);
 
     _bold(b, true);
-    _size(b, w: 0, h: 1); // double height for total
+    _size(b, h: 1);
     b.add(
       _encode(
         _twoCol(
@@ -176,7 +176,7 @@ class EscPosBuilder {
       ),
     );
     b.add([_lf]);
-    _size(b, w: 0, h: 0);
+    _size(b);
     _bold(b, false);
 
     // --- GST breakdown ---
