@@ -174,6 +174,9 @@ class ProductsService {
       stock: product.stock,
       lowStockAlert: product.lowStockAlert,
       barcode: product.barcode,
+      imageUrl: product.imageUrl,
+      category: product.category,
+      hsnCode: product.hsnCode,
       unit: product.unit,
       createdAt: DateTime.now(),
     );
@@ -219,6 +222,9 @@ class ProductsService {
           stock: product.stock,
           lowStockAlert: product.lowStockAlert,
           barcode: product.barcode,
+          imageUrl: product.imageUrl,
+          category: product.category,
+          hsnCode: product.hsnCode,
           unit: product.unit,
           createdAt: DateTime.now(),
         );

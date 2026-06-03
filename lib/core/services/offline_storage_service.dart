@@ -1206,7 +1206,7 @@ class OfflineStorageService {
           isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
         )
         .orderBy('createdAt', descending: true)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snapshot) {
           UserUsageService.trackRead(count: snapshot.docs.length);
           return snapshot.docs.fold<double>(0, (total, doc) {
