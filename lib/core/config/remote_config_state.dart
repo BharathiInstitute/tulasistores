@@ -1,4 +1,4 @@
-/// Global Remote Config state — set once in main.dart, read anywhere
+/// Global Remote Config state Ã¢â‚¬â€ set once in main.dart, read anywhere
 ///
 /// This avoids passing Remote Config values through constructors.
 /// Values are set during app initialization and read by widgets.
@@ -7,8 +7,8 @@ library;
 class RemoteConfigState {
   RemoteConfigState._();
 
-  /// App version — set from main.dart at startup
-  static String appVersion = '1.0.0';
+  /// App version Ã¢â‚¬â€ set from main.dart at startup
+  static String appVersion = '10.0.2';
 
   /// Announcement message from admin (empty = no announcement)
   static String announcement = '';
