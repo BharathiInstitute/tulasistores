@@ -1,7 +1,7 @@
 name: retaillite
 description: "LITE - Retail Management System"
 publish_to: 'none'
-version: 10.0.0+58
+version: 10.0.1+59
 
 environment:
   sdk: ^3.9.0
@@ -32,7 +32,7 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.2.2
 
-  # WebView2 for Windows (embedded login Ã¢â‚¬â€ no external browser needed)
+  # WebView2 for Windows (embedded login ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no external browser needed)
   webview_windows: ^0.4.0
 
   # Charts (for admin dashboard)
@@ -99,7 +99,7 @@ dependencies:
   # Web platform interop
   web: ^1.1.1
 
-  # WebSocket client Ã¢â‚¬â€ used to talk to QZ Tray (free local print service)
+  # WebSocket client ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â used to talk to QZ Tray (free local print service)
   # Enables raw ESC/POS printing from Chrome, bypassing Windows print dialog
   # and driver paper-size limitations.
   web_socket_channel: ^3.0.1
@@ -167,7 +167,7 @@ msix_config:
   publisher_display_name: Tulasi ERP
   publisher: CN=E031B94D-44BC-474E-A0E4-80CF69D69C2D
   identity_name: 39648TulasiERP.TulasiStores
-  msix_version: 10.0.0.0
+  msix_version: 10.0.1.0
   logo_path: assets\images\app_icon.png
   capabilities: internetClient,internetClientServer
   languages: en-us,hi-in,te-in

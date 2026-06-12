@@ -1,0 +1,250 @@
+﻿00:00 +0: loading E:/retaillite/test/config/app_check_config_test.dart
+00:00 +0: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is a string (empty in test environment)
+00:00 +1: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is a string (empty in test environment)
+00:00 +2: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is a string (empty in test environment)
+00:00 +3: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is a string (empty in test environment)
+00:00 +4: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is a string (empty in test environment)
+00:00 +5: E:/retaillite/test/config/razorpay_config_test.dart: RazorpayConfig.appName whitespace-only falls back to platform name
+00:00 +6: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig isWebConfigured is false when no env var set
+00:00 +7: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig isWebConfigured is false when no env var set
+00:00 +8: E:/retaillite/test/config/razorpay_config_test.dart: RazorpayConfig.isTestMode false for rzp_live_ prefix
+00:00 +9: E:/retaillite/test/config/app_check_config_test.dart: AppCheckConfig recaptchaSiteKey is empty string without dart-define
+00:00 +10: E:/retaillite/test/config/razorpay_config_test.dart: RazorpayConfig.isTestMode false for empty string
+00:00 +11: E:/retaillite/test/config/razorpay_config_test.dart: RazorpayConfig.isConfigured false when key is empty
+00:00 +12: E:/retaillite/test/config/razorpay_config_test.dart: RazorpayConfig.isConfigured true when key is present
+00:01 +13: E:/retaillite/test/config/remote_config_state_test.dart: RemoteConfigState defaults appVersion defaults to 1.0.0
+00:01 +14: E:/retaillite/test/config/remote_config_state_test.dart: RemoteConfigState defaults announcement defaults to empty
+00:01 +15: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion false when latestVersion is empty
+00:01 +16: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion false when versions are equal
+00:01 +17: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion true when latest is newer major
+00:01 +18: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion true when latest is newer minor
+00:01 +19: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion true when latest is newer patch
+00:01 +20: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion false when current is newer
+00:01 +21: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion false when current minor is newer
+00:01 +22: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion false when current patch is newer
+00:02 +23: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion handles malformed version gracefully (no crash)
+00:02 +24: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion handles partial versions
+00:02 +25: E:/retaillite/test/config/remote_config_state_test.dart: hasNewerVersion handles double-digit versions
+00:02 +26: E:/retaillite/test/config/remote_config_state_test.dart: announcement can be set and read
+00:02 +27: E:/retaillite/test/config/remote_config_state_test.dart: announcement empty string means no announcement
+00:02 +28: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants collections collection names are non-empty
+00:02 +29: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants collections collection names are lowercase
+00:02 +30: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants collections expected collection values
+00:02 +31: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants field names user fields are non-empty
+00:02 +32: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants field names product fields are non-empty
+00:02 +33: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants field names bill fields are non-empty
+00:02 +34: E:/retaillite/test/constants/firebase_constants_test.dart: FirebaseConstants field names field names use camelCase convention
+00:13 +35: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider paginatedBillsProvider is autoDispose
+00:13 +36: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider paginatedExpensesProvider is autoDispose
+00:13 +37: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider paginatedCustomersProvider is autoDispose
+00:13 +38: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider paginatedProductsProvider is autoDispose
+00:13 +39: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider PaginatedState defaults are correct
+00:13 +40: E:/retaillite/test/core/providers/paginated_collections_provider_test.dart: PaginatedCollectionsProvider PaginatedState.copyWith preserves unset fields
+00:15 +41: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö default values default primary is emerald green
+00:15 +42: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö default values secondary syncs with primary
+00:15 +43: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö semantic colors success is green
+00:15 +44: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö semantic colors error is red
+00:15 +45: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö semantic colors warning is amber
+00:15 +46: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö semantic colors info is blue
+00:15 +47: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö semantic colors background colors are lighter than text colors
+00:15 +48: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö payment colors cash is green
+00:15 +49: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö payment colors upi is indigo
+00:15 +50: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö payment colors credit/udhar are red
+00:15 +51: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö light mode neutrals textPrimary is dark slate
+00:15 +52: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö light mode neutrals surface is white
+00:15 +53: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö light mode neutrals backward-compatible aliases match
+00:15 +54: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö dark mode neutrals backgroundDark is very dark
+00:15 +55: E:/retaillite/test/design/app_colors_test.dart: AppColors ΓÇö dark mode neutrals textPrimaryDark is near white
+00:15 +56: E:/retaillite/test/design/app_colors_test.dart: AppColors.updatePrimary updates all primary shades
+00:15 +57: E:/retaillite/test/design/app_colors_test.dart: AppColors.updatePrimary primaryDark is darker than primary
+00:15 +58: E:/retaillite/test/design/app_colors_test.dart: AppColors.updatePrimary primaryLight is lighter than primary
+00:15 +59: E:/retaillite/test/design/app_colors_test.dart: AppColors.updatePrimary updates gradients
+00:15 +60: E:/retaillite/test/design/app_colors_test.dart: AppSpacing constants spacing values are ascending
+00:15 +61: E:/retaillite/test/design/app_colors_test.dart: AppSpacing constants radius values are ascending
+00:15 +62: E:/retaillite/test/design/app_colors_test.dart: AppShadows small shadow has low blur
+00:15 +63: E:/retaillite/test/design/app_colors_test.dart: AppShadows medium shadow has moderate blur
+00:15 +64: E:/retaillite/test/design/app_colors_test.dart: AppShadows large shadow has high blur
+00:15 +65: E:/retaillite/test/design/app_colors_test.dart: AppShadows shadow sizes are ascending
+00:16 +66: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö spacing constants spacing values are positive and ascending
+00:16 +67: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö spacing constants chip and badge sizes
+00:16 +68: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö spacing constants card padding values
+00:16 +69: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö border radius constants radius values are positive and ascending
+00:16 +70: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö icon sizes icon sizes are ascending
+00:16 +71: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö layout widths max content width
+00:16 +72: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö layout widths navigation dimensions
+00:16 +73: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö layout widths cart bottom sheet fraction is between 0 and 1
+00:16 +74: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö touch targets minimum touch target meets accessibility guidelines
+00:16 +75: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö touch targets icon button and fab sizes
+00:16 +76: E:/retaillite/test/design/app_sizes_test.dart: AppSizes ΓÇö touch targets input height small
+00:17 +77: E:/retaillite/test/design/app_theme_test.dart: (setUpAll)
+Error: google_fonts was unable to load font Inter-Bold because the following exception occurred:
+Exception: GoogleFonts.config.allowRuntimeFetching is false but font Inter-Bold was not found in the application assets. Ensure Inter-Bold.ttf exists in a folder that is included in your pubspec's assets.
+
+There is likely something wrong with your test. Please see https://github.com/flutter/packages/blob/main/packages/google_fonts/example/test for examples of how to test with google_fonts.
+If troubleshooting doesn't solve the problem, please file an issue at https://github.com/flutter/flutter/issues/new/choose.
+
+Error: google_fonts was unable to load font Inter-SemiBold because the following exception occurred:
+Exception: GoogleFonts.config.allowRuntimeFetching is false but font Inter-SemiBold was not found in the application assets. Ensure Inter-SemiBold.ttf exists in a folder that is included in your pubspec's assets.
+
+There is likely something wrong with your test. Please see https://github.com/flutter/packages/blob/main/packages/google_fonts/example/test for examples of how to test with google_fonts.
+If troubleshooting doesn't solve the problem, please file an issue at https://github.com/flutter/flutter/issues/new/choose.
+
+Error: google_fonts was unable to load font Inter-Regular because the following exception occurred:
+Exception: GoogleFonts.config.allowRuntimeFetching is false but font Inter-Regular was not found in the application assets. Ensure Inter-Regular.ttf exists in a folder that is included in your pubspec's assets.
+
+There is likely something wrong with your test. Please see https://github.com/flutter/packages/blob/main/packages/google_fonts/example/test for examples of how to test with google_fonts.
+If troubleshooting doesn't solve the problem, please file an issue at https://github.com/flutter/flutter/issues/new/choose.
+
+Error: google_fonts was unable to load font Inter-Medium because the following exception occurred:
+Exception: GoogleFonts.config.allowRuntimeFetching is false but font Inter-Medium was not found in the application assets. Ensure Inter-Medium.ttf exists in a folder that is included in your pubspec's assets.
+
+There is likely something wrong with your test. Please see https://github.com/flutter/packages/blob/main/packages/google_fonts/example/test for examples of how to test with google_fonts.
+If troubleshooting doesn't solve the problem, please file an issue at https://github.com/flutter/flutter/issues/new/choose.
+
+00:19 +77: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light uses Material 3
+00:19 +78: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light brightness is light
+00:19 +79: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light scaffold background is AppColors.background
+00:19 +80: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light card color is AppColors.card
+00:19 +81: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light primary color matches AppColors.primary
+00:19 +82: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light error color is red
+00:19 +83: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light appBar has no elevation
+00:19 +84: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light elevated button has primary background
+00:19 +85: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light card theme has zero elevation and rounded corners
+00:19 +86: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light snackbar uses floating behavior
+00:19 +87: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light bottom navigation has primary selected color
+00:19 +88: E:/retaillite/test/design/app_theme_test.dart: AppTheme.light text theme has all standard sizes
+00:19 +89: E:/retaillite/test/design/app_theme_test.dart: AppTheme.dark brightness is dark
+00:19 +90: E:/retaillite/test/design/app_theme_test.dart: AppTheme.dark scaffold uses dark background
+00:19 +91: E:/retaillite/test/design/app_theme_test.dart: AppTheme.dark card uses dark card color
+00:19 +92: E:/retaillite/test/design/app_theme_test.dart: AppTheme.dark text theme uses light text on dark
+00:19 +93: E:/retaillite/test/design/app_theme_test.dart: AppTheme.dark primary color is primaryLight for better contrast
+00:19 +94: E:/retaillite/test/design/app_theme_test.dart: (tearDownAll)
+00:19 +94: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö button style button font size is 14
+00:19 +95: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö button style caption font size is 11
+00:19 +96: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö heading mobile sizes h1 mobile is 20, desktop is 24
+00:19 +97: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö heading mobile sizes h2 mobile is 16, desktop is 18
+00:19 +98: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö heading mobile sizes h3 mobile is 14, desktop is 16
+00:19 +99: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö body text sizes body mobile is 13, desktop is 14
+00:19 +100: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö body text sizes bodySmall mobile is 12, desktop is 13
+00:19 +101: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö special styles price font size is 16
+00:19 +102: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö special styles chip font size is 13
+00:19 +103: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö special styles mono uses robotoMono at 13
+00:19 +104: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö font weight contracts heading weights are bold or semiBold
+00:19 +105: E:/retaillite/test/design/app_typography_test.dart: AppTypography ΓÇö font weight contracts label weight is w500 (medium)
+00:24 +106: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary updates primary color
+00:24 +107: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary generates darker shade
+00:24 +108: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary generates lighter shade
+00:24 +109: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary syncs secondary with primary
+00:24 +110: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary handles very dark color (lightness near 0)
+00:24 +111: E:/retaillite/test/design/design_system_test.dart: AppColors.updatePrimary handles very light color (lightness near 1)
+00:24 +112: E:/retaillite/test/design/design_system_test.dart: AppColors semantic colors success color is green
+00:24 +113: E:/retaillite/test/design/design_system_test.dart: AppColors semantic colors error color is red
+00:24 +114: E:/retaillite/test/design/design_system_test.dart: AppColors semantic colors warning color is amber
+00:24 +115: E:/retaillite/test/design/design_system_test.dart: AppColors semantic colors info color is blue
+00:24 +116: E:/retaillite/test/design/design_system_test.dart: AppColors semantic colors all background variants are non-null
+00:24 +117: E:/retaillite/test/design/design_system_test.dart: AppSizes border radius values are positive
+00:24 +118: E:/retaillite/test/design/design_system_test.dart: AppSizes spacing values are non-negative
+00:24 +119: E:/retaillite/test/design/design_system_test.dart: AppSizes spacing values increase
+00:30 +120: E:/retaillite/test/design/spacing_shadows_test.dart: AppSpacing spacing values increase monotonically
+00:30 +121: E:/retaillite/test/design/spacing_shadows_test.dart: AppSpacing all spacing values are positive
+00:30 +122: E:/retaillite/test/design/spacing_shadows_test.dart: AppSpacing exact spacing values
+00:30 +123: E:/retaillite/test/design/spacing_shadows_test.dart: AppSpacing radius values increase monotonically
+00:30 +124: E:/retaillite/test/design/spacing_shadows_test.dart: AppSpacing radiusFull is 999 (effective circle)
+00:30 +125: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows small returns single BoxShadow
+00:30 +126: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows medium returns single BoxShadow
+00:30 +127: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows large returns single BoxShadow
+00:30 +128: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows blur radius increases with shadow size
+00:30 +129: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows offset.dy increases with shadow size
+00:30 +130: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows all shadows cast downward (dx=0, dy>0)
+00:30 +131: E:/retaillite/test/design/spacing_shadows_test.dart: AppShadows opacity increases with shadow size
+00:31 +132: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: user list admin views user list with correct count
+00:31 +133: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: user list user list contains expected data fields
+00:31 +134: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: user detail user detail shows subscription and usage
+00:31 +135: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: subscription management admin updates subscription ΓåÆ limits change
+00:31 +136: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: subscription management admin resets user limits ΓåÆ billsThisMonth goes to 0
+00:31 +137: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: admin email management admin adds email ΓåÆ appears in list
+00:31 +138: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: admin email management admin removes email ΓåÆ removed from list
+00:31 +139: E:/retaillite/test/integration/admin_operations_test.dart: Admin operations: admin email management admin cannot remove primary owner email
+00:32 +140: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: register ΓåÆ verify ΓåÆ shop setup registration creates user with unverified email
+00:32 +141: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: register ΓåÆ verify ΓåÆ shop setup unverified user goes to email verification
+00:32 +142: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: register ΓåÆ verify ΓåÆ shop setup verified user without shop setup goes to shop setup
+00:32 +143: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: login verified user verified user with shop setup goes to billing
+00:32 +144: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: demo mode demo mode login sets isDemoMode true
+00:32 +145: E:/retaillite/test/integration/auth_flow_complete_test.dart: Auth flow: demo mode demo mode skips email verification and shop setup
+00:33 +146: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: bill validation bill with 0 items: items list empty
+00:33 +147: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: bill validation bill total cannot be negative
+00:33 +148: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: bill validation bill total of zero is invalid
+00:33 +149: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: payment calculation partial payment: correct change (Γé╣500 on Γé╣480 = Γé╣20)
+00:33 +150: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: payment calculation exact payment gives zero change
+00:33 +151: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: payment calculation CartItem total = price ├ù quantity
+00:33 +152: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: cart quantity limits max cart quantity: 9999 per item capped
+00:33 +153: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: cart quantity limits minimum cart quantity is 1
+00:33 +154: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: payment methods all payment methods tested
+00:33 +155: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: payment methods PaymentMethod.fromString handles all values
+00:33 +156: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: bill number bill number auto-increments from last
+00:33 +157: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: bill number first bill starts at 1
+00:33 +158: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: plan limits free plan limit is 50 bills/month
+00:33 +159: E:/retaillite/test/integration/billing_edge_cases_test.dart: Billing edge cases: plan limits bill below free plan limit is allowed
+00:35 +160: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 1: Products are valid
+00:35 +161: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 2: Cart items compute totals correctly
+00:35 +162: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 3: Bill creation within subscription limits
+00:35 +163: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 4: Stock decrements correctly
+00:35 +164: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 5: Udhar bill updates customer balance
+00:35 +165: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 6: Payment records reduce customer balance
+00:35 +166: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 7: Daily summary aggregates correctly
+00:35 +167: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Full Billing Flow Step 8: Subscription limit blocks at boundary
+00:35 +168: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Subscription Lifecycle Free ΓåÆ Pro ΓåÆ Business upgrade path
+00:35 +169: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Subscription Lifecycle Subscription expiry ΓåÆ renewal flow
+00:35 +170: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Subscription Lifecycle Cancelled subscription is not active
+00:35 +171: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Multi-item Cart to Bill Large cart with 50 items computes correctly
+00:35 +172: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Report Period Navigation Navigate through week periods consistently
+00:35 +173: E:/retaillite/test/integration/billing_flow_test.dart: Integration: Report Period Navigation Navigate through month periods consistently
+00:35 +174: E:/retaillite/test/integration/billing_flow_test.dart: Integration: AppConstants consistency with UserSubscription Free tier limits match AppConstants
+00:35 +175: E:/retaillite/test/integration/billing_flow_test.dart: Integration: AppConstants consistency with UserSubscription Pro tier limits match AppConstants
+00:35 +176: E:/retaillite/test/integration/billing_flow_test.dart: Integration: AppConstants consistency with UserSubscription Business tier limits match AppConstants
+00:42 +177: E:/retaillite/test/integration/concurrency_test.dart: ID generation ΓÇö collision resistance 1000 sequential IDs have high uniqueness
+00:42 +178: E:/retaillite/test/integration/concurrency_test.dart: ID generation ΓÇö collision resistance IDs with different prefixes are unique
+00:42 +179: E:/retaillite/test/integration/concurrency_test.dart: ID generation ΓÇö collision resistance IDs contain their prefix
+00:42 +180: E:/retaillite/test/integration/concurrency_test.dart: ID generation ΓÇö collision resistance 10K simultaneous ID generations have near-zero collisions
+00:42 +181: E:/retaillite/test/integration/concurrency_test.dart: Bill number generation ΓÇö uniqueness generateBillNumber produces positive numbers
+00:42 +182: E:/retaillite/test/integration/concurrency_test.dart: Bill number generation ΓÇö uniqueness bill numbers are reasonable magnitude
+00:42 +183: E:/retaillite/test/integration/concurrency_test.dart: WriteBatch size constraints (Firestore limit = 500) batch size for deleteOldBills is 400 (under 500)
+00:42 +184: E:/retaillite/test/integration/concurrency_test.dart: WriteBatch size constraints (Firestore limit = 500) notification send batches at 450
+00:42 +185: E:/retaillite/test/integration/concurrency_test.dart: WriteBatch size constraints (Firestore limit = 500) for 10K users, batch operations stay in bounds
+00:42 +186: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants saveBillWithUdharAtomic requires exactly 3 operations
+00:42 +187: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants recordPaymentAtomic requires exactly 2 operations
+00:42 +188: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants addCreditAtomic requires exactly 2 operations
+00:42 +189: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants udhar bill: balance delta equals bill total
+00:42 +190: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants payment reduces balance by exact amount
+00:42 +191: E:/retaillite/test/integration/concurrency_test.dart: Atomic write invariants credit increases balance by exact amount
+00:42 +192: E:/retaillite/test/integration/concurrency_test.dart: Query limit safety (prevents unbounded reads) AppConstants has reasonable query limits
+00:42 +193: E:/retaillite/test/integration/concurrency_test.dart: Transaction model ΓÇö type safety for concurrent writes TransactionType enum has exactly 3 values
+00:42 +194: E:/retaillite/test/integration/concurrency_test.dart: Transaction model ΓÇö type safety for concurrent writes payment amount must be positive
+00:42 +195: E:/retaillite/test/integration/concurrency_test.dart: Transaction model ΓÇö type safety for concurrent writes transaction always has a customerId
+00:46 +196: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 1: Parse CSV rows into ProductModel list
+00:47 +197: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 2: Validate required fields
+00:47 +198: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 3: Batch chunking respects 490-operation limit
+00:47 +199: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 4: Duplicate detection by name (case-insensitive)
+00:47 +200: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 5: Profit margins computed correctly for imported products
+00:47 +201: E:/retaillite/test/integration/csv_import_flow_test.dart: Integration: CSV Import Flow Step 6: Gross profit aggregation from imported products
+00:49 +202: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 1: Link code is 8 characters, alphanumeric uppercase
+00:49 +203: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 2: Link code expiry is 10 minutes from creation
+00:49 +204: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 3: Expired code is rejected
+00:49 +205: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 4: Valid code is accepted within window
+00:49 +206: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 5: Session requires deviceId binding
+00:49 +207: E:/retaillite/test/integration/desktop_auth_flow_test.dart: Integration: Desktop Auth Flow Step 6: Countdown timer computes remaining seconds
+00:51 +208: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: data loading demo data loads products
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: false
+≡ƒÄ¡ Demo data loaded: 15 products, 5 customers, 3 bills, 3 expenses
+00:51 +209: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: data loading demo data loads customers
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: true
+00:51 +210: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: data loading demo data loads bills
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: true
+00:51 +211: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: data loading demo data isLoaded flag set
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: true
+00:51 +212: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: cleanup clearDemoData removes all data
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: true
+00:51 +213: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: cleanup clearDemoData resets isLoaded flag
+≡ƒÄ¡ DemoDataService.loadDemoData() called. Already loaded: false
+≡ƒÄ¡ Demo data loaded: 15 products, 5 customers, 3 bills, 3 expenses
+00:51 +214: E:/retaillite/test/integration/demo_mode_test.dart: Demo mode: no Firestore writes demo mode flag prevents real writes
