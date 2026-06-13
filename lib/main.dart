@@ -34,9 +34,9 @@ import 'package:retaillite/features/notifications/services/windows_notification_
 import 'package:retaillite/firebase_options.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// App version Ã¢â‚¬â€ read from pubspec.yaml at runtime (single source of truth)
+/// App version ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â read from pubspec.yaml at runtime (single source of truth)
 /// Initialized in _initializeApp() before any version checks.
-String appVersion = '10.0.2'; // overwritten at startup
+String appVersion = '10.0.3'; // overwritten at startup
 int appBuildNumber = 0; // overwritten at startup
 
 /// Whether Firebase has finished initializing.
@@ -60,12 +60,12 @@ void main() {
       _initializeApp();
     },
     (error, stack) {
-      debugPrint('Ã°Å¸â€Â´ runZonedGuarded caught: $error');
+      debugPrint('ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â´ runZonedGuarded caught: $error');
       if (_firebaseReady) {
-        // Firebase is up Ã¢â‚¬â€ use normal error pipeline
+        // Firebase is up ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â use normal error pipeline
         ErrorHandler.report(error, stack);
       } else {
-        // Firebase NOT ready Ã¢â‚¬â€ save locally for next startup
+        // Firebase NOT ready ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â save locally for next startup
         ErrorLoggingService.savePreFirebaseCrash(error, stack);
       }
     },
@@ -90,7 +90,7 @@ Future<void> _initializeApp() async {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Parallel Firebase init batch Ã¢â€â‚¬Ã¢â€â‚¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Parallel Firebase init batch ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     // These are all independent after Firebase.initializeApp() completes.
     // Running in parallel shaves ~500-800ms off cold start.
     await Future.wait([
@@ -139,7 +139,7 @@ Future<void> _initializeApp() async {
         appVersion = packageInfo.version;
         appBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 0;
         RemoteConfigState.appVersion = appVersion;
-        debugPrint('Ã°Å¸â€œÂ± App version: v$appVersion+$appBuildNumber');
+        debugPrint('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â± App version: v$appVersion+$appBuildNumber');
       }),
     ]);
 
@@ -195,7 +195,7 @@ Future<void> _initializeApp() async {
       );
       RemoteConfigState.announcement = remoteConfig.getString('announcement');
     } catch (e, st) {
-      debugPrint('Ã¢Å¡Â Ã¯Â¸Â Remote Config initialization failed: $e');
+      debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Remote Config initialization failed: $e');
       unawaited(
         ErrorLoggingService.logError(
           error: e,
@@ -210,7 +210,7 @@ Future<void> _initializeApp() async {
       PaymentLinkService.setUpiId(merchantUpiId);
     }
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Check maintenance mode Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Check maintenance mode ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     if (maintenanceMode) {
       runApp(
         MaintenanceScreen(
@@ -223,7 +223,7 @@ Future<void> _initializeApp() async {
       return;
     }
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Check force update Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Check force update ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     if (_isVersionLower(appVersion, minVersion)) {
       runApp(
         ForceUpdateScreen(
@@ -254,24 +254,24 @@ Future<void> _initializeApp() async {
     // Launch the main app
     runApp(const ProviderScope(child: LiteApp()));
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Update System Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-    // Windows: 5-layer silent Ã¢â€ â€™ dialog Ã¢â€ â€™ force
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Update System ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // Windows: 5-layer silent ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ dialog ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ force
     unawaited(WindowsUpdateService.runBackgroundUpdateCheck());
     // Android: Google Play in-app updates (flexible)
     unawaited(AndroidUpdateService.checkForUpdate());
     // Layer 4 dialog: triggered from app.dart (needs BuildContext)
     // Layer 5 force update: handled above via Remote Config
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Data Retention Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Data Retention ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     // Auto-cleanup expired data if due (every 7 days)
     unawaited(_runAutoCleanupIfDue());
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ User Metrics Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ User Metrics ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     // Track user activity for admin dashboard
     unawaited(UserMetricsService.trackActivity());
   } catch (error, stack) {
     // Show error screen with retry option
-    debugPrint('Ã¢ÂÅ’ App initialization failed: $error');
+    debugPrint('ÃƒÂ¢Ã‚ÂÃ…â€™ App initialization failed: $error');
     debugPrint('Stack: $stack');
 
     if (!kIsWeb && !isWindows) {
@@ -296,12 +296,12 @@ Future<void> _initializeApp() async {
   }
 }
 
-/// Safely initialize a service Ã¢â‚¬â€ logs error but doesn't crash the app
+/// Safely initialize a service ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â logs error but doesn't crash the app
 Future<void> _safeInit(String name, Future<void> Function() init) async {
   try {
     await init();
   } catch (e, st) {
-    debugPrint('Ã¢Å¡Â Ã¯Â¸Â $name init failed (non-fatal): $e');
+    debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â $name init failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -331,12 +331,12 @@ Future<void> _runAutoCleanupIfDue() async {
     final result = await service.cleanupExpiredData();
     if (result.totalDeleted > 0) {
       debugPrint(
-        'Ã°Å¸Â§Â¹ Auto-cleanup: ${result.billsDeleted} bills, '
+        'ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â¹ Auto-cleanup: ${result.billsDeleted} bills, '
         '${result.expensesDeleted} expenses deleted',
       );
     }
   } catch (e, st) {
-    debugPrint('Ã¢Å¡Â Ã¯Â¸Â Auto-cleanup failed (non-fatal): $e');
+    debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Auto-cleanup failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -362,6 +362,6 @@ bool _isVersionLower(String current, String minimum) {
     }
     return false; // equal
   } catch (_) {
-    return false; // malformed version string Ã¢â‚¬â€ don't block
+    return false; // malformed version string ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â don't block
   }
 }

@@ -7,22 +7,22 @@ class AppConstants {
   // App Info
   static const String appName = 'RetailLite';
   static const String defaultShopName = 'My Shop';
-  static const String appTagline = 'Ã Â¤Â­Ã Â¤Â¾Ã Â¤Â°Ã Â¤Â¤ Ã Â¤â€¢Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤Â¬Ã Â¤Â¸Ã Â¥â€¡ Ã Â¤â€ Ã Â¤Â¸Ã Â¤Â¾Ã Â¤Â¨ Ã Â¤Â¬Ã Â¤Â¿Ã Â¤Â²Ã Â¤Â¿Ã Â¤â€šÃ Â¤â€” Ã Â¤ÂÃ Â¤Âª';
-  static const String version = '10.0.2';
+  static const String appTagline = 'ÃƒÂ Ã‚Â¤Ã‚Â­ÃƒÂ Ã‚Â¤Ã‚Â¾ÃƒÂ Ã‚Â¤Ã‚Â°ÃƒÂ Ã‚Â¤Ã‚Â¤ ÃƒÂ Ã‚Â¤Ã¢â‚¬Â¢ÃƒÂ Ã‚Â¤Ã‚Â¾ ÃƒÂ Ã‚Â¤Ã‚Â¸ÃƒÂ Ã‚Â¤Ã‚Â¬ÃƒÂ Ã‚Â¤Ã‚Â¸ÃƒÂ Ã‚Â¥Ã¢â‚¬Â¡ ÃƒÂ Ã‚Â¤Ã¢â‚¬Â ÃƒÂ Ã‚Â¤Ã‚Â¸ÃƒÂ Ã‚Â¤Ã‚Â¾ÃƒÂ Ã‚Â¤Ã‚Â¨ ÃƒÂ Ã‚Â¤Ã‚Â¬ÃƒÂ Ã‚Â¤Ã‚Â¿ÃƒÂ Ã‚Â¤Ã‚Â²ÃƒÂ Ã‚Â¤Ã‚Â¿ÃƒÂ Ã‚Â¤Ã¢â‚¬Å¡ÃƒÂ Ã‚Â¤Ã¢â‚¬â€ ÃƒÂ Ã‚Â¤Ã‚ÂÃƒÂ Ã‚Â¤Ã‚Âª';
+  static const String version = '10.0.3';
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) Ã¢â€â‚¬Ã¢â€â‚¬
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   static const int freeMaxBillsPerMonth = 50; // 50 bills / month
   static const int freeMaxProducts = 100; // 100 products
   static const int freeMaxCustomers = 10; // 10 customers
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ PRO Tier Limits Ã¢â€â‚¬Ã¢â€â‚¬
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ PRO Tier Limits ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   static const int proMaxBillsPerMonth = 500;
   static const int proMaxProducts = 999999; // unlimited
   static const int proMaxCustomers = 999999; // unlimited
   static const int proPriceInrMonthly = 299;
   static const int proPriceInrAnnual = 2390; // ~20% off
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ BUSINESS Tier Limits Ã¢â€â‚¬Ã¢â€â‚¬
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ BUSINESS Tier Limits ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   static const int businessMaxBillsPerMonth = 999999; // unlimited
   static const int businessMaxProducts = 999999; // unlimited
   static const int businessMaxCustomers = 999999; // unlimited
@@ -35,7 +35,7 @@ class AppConstants {
   static const int otpTimeoutSeconds = 60;
 
   // Bill Settings
-  static const String currencySymbol = 'Ã¢â€šÂ¹';
+  static const String currencySymbol = 'ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹';
   static const String countryCode = '+91';
 
   // Date Formats

@@ -136,6 +136,37 @@ function Complete-Step {
     Save-Progress
 }
 
+function Find-IsccExe {
+    # Search for ISCC.exe in common installation paths
+    $searchPaths = @(
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        "C:\Program Files\Inno Setup 6\ISCC.exe",
+        "C:\Program Files (x86)\Inno Setup\ISCC.exe",
+        "C:\Program Files\Inno Setup\ISCC.exe"
+    )
+    
+    foreach ($path in $searchPaths) {
+        if (Test-Path $path) {
+            return $path
+        }
+    }
+    
+    # If not found in standard paths, try to find it via registry
+    try {
+        $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        $innoEntry = Get-ItemProperty $regPath | Where-Object { $_.DisplayName -like '*Inno Setup*' } | Select-Object -First 1
+        if ($innoEntry -and $innoEntry.InstallLocation) {
+            $isccPath = Join-Path $innoEntry.InstallLocation "ISCC.exe"
+            if (Test-Path $isccPath) {
+                return $isccPath
+            }
+        }
+    } catch { }
+    
+    # Not found anywhere
+    return $null
+}
+
 function Save-Progress {
     if (-not (Test-Path variable:script:currentState)) { return }
     $script:currentState.completedSteps = $script:completedSteps
@@ -873,7 +904,7 @@ try {
         }
         else {
             Write-Ok "All tests passed"
-            Write-DeployLog "TESTS PASSED"
+            Write-DeployLog "TESTS PASSED" 
         }
 
         # Check coverage from the same test run
@@ -1064,9 +1095,9 @@ try {
             if ($buildExe) {
                 Write-Step "Creating Inno Setup EXE installer (for web download)..."
                 $issPath = Join-Path $root "installer\TulasiStores_Setup.iss"
-                $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+                $isccPath = Find-IsccExe
 
-                if ((Test-Path $issPath) -and (Test-Path $isccPath)) {
+                if ((Test-Path $issPath) -and $isccPath) {
                     # Update version in .iss file
                     $issContent = Get-Content $issPath -Raw
                     $issContent = $issContent -replace '#define MyAppVersion "[\d.]+"', "#define MyAppVersion `"$newVersion`""
@@ -1074,6 +1105,7 @@ try {
                     Write-Info "Updated .iss version to $newVersion"
 
                     # Compile with Inno Setup
+                    Write-Info "Using Inno Setup from: $isccPath"
                     $ErrorActionPreference = "Continue"
                     & $isccPath $issPath
                     $innoExit = $LASTEXITCODE
@@ -1102,7 +1134,10 @@ try {
                     }
                 }
                 else {
-                    if (-not (Test-Path $isccPath)) { Write-Warn "Inno Setup 6 not found at $isccPath" }
+                    if (-not $isccPath) { 
+                        Write-Warn "Inno Setup 6 not found on this system"
+                        Write-Info "To install: https://jrsoftware.org/isdl.php"
+                    }
                     if (-not (Test-Path $issPath)) { Write-Warn "Inno Setup script not found at $issPath" }
                     if (-not $msixFile) { $failed = $true }
                 }
@@ -1178,25 +1213,32 @@ WScript.Quit 0
 
                 # Upload EXE to Firebase Storage (MSIX goes to Microsoft Store separately)
                 $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
+                $gsutilOk = $false
                 if ($gsutilExists) {
                     $storagePath = "gs://login-radha.firebasestorage.app/downloads/windows/"
 
                     # Upload version.json + EXE (overwrite single fixed filename)
                     Write-Step "Uploading EXE + version.json to Firebase Storage..."
+                    $ErrorActionPreference = "Continue"
                     gsutil cp $winVersionPath "${storagePath}version.json"
-                    gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
+                    if ($LASTEXITCODE -eq 0) {
+                        gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
+                        $gsutilOk = $true
 
-                    if ($exeFile -and (Test-Path $exeFile)) {
-                        gsutil cp $exeFile "${storagePath}$exeStorageName"
-                        gsutil setmeta -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$exeStorageName"
-                        Write-Ok "EXE uploaded: $exeStorageName"
+                        if ($exeFile -and (Test-Path $exeFile)) {
+                            gsutil cp $exeFile "${storagePath}$exeStorageName"
+                            gsutil setmeta -h "Content-Type:application/octet-stream" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$exeStorageName"
+                            Write-Ok "EXE uploaded: $exeStorageName"
+                        }
+
+                        Write-Ok "EXE uploaded to Firebase Storage"
+                        Write-DeployLog "FIREBASE UPLOAD | Windows EXE + version.json"
+                    } else {
+                        Write-Warn "gsutil permission denied - falling back to REST API"
                     }
-
                     $ErrorActionPreference = "Stop"
-                    Write-Ok "EXE uploaded to Firebase Storage"
-                    Write-DeployLog "FIREBASE UPLOAD | Windows EXE + version.json"
                 }
-                else {
+                if (-not $gsutilOk) {
                     Write-Step "Uploading via Firebase REST API (gsutil not found)..."
                     $fbToken = Get-FirebaseAccessToken
                     if ($fbToken) {
@@ -1294,25 +1336,32 @@ WScript.Quit 0
 
             # Upload APK to Firebase Storage
             $gsutilExists = Get-Command gsutil -ErrorAction SilentlyContinue
+            $gsutilOk = $false
             if ($gsutilExists) {
                 $storagePath = "gs://login-radha.firebasestorage.app/downloads/android/"
 
                 # Upload version.json + APK (overwrite single fixed filename)
                 Write-Step "Uploading APK + version.json to Firebase Storage..."
+                $ErrorActionPreference = "Continue"
                 gsutil cp $androidVersionPath "${storagePath}version.json"
-                gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
+                if ($LASTEXITCODE -eq 0) {
+                    gsutil setmeta -h "Cache-Control:no-cache,max-age=0" "${storagePath}version.json"
+                    $gsutilOk = $true
 
-                if (Test-Path $apkPath) {
-                    gsutil cp $apkPath "${storagePath}$apkStorageName"
-                    gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
-                    Write-Ok "APK uploaded: $apkStorageName"
+                    if (Test-Path $apkPath) {
+                        gsutil cp $apkPath "${storagePath}$apkStorageName"
+                        gsutil setmeta -h "Content-Type:application/vnd.android.package-archive" -h "Cache-Control:no-cache,max-age=0" "${storagePath}$apkStorageName"
+                        Write-Ok "APK uploaded: $apkStorageName"
+                    }
+
+                    Write-Ok "Android uploaded to Firebase Storage"
+                    Write-DeployLog "FIREBASE UPLOAD | Android APK + version.json"
+                } else {
+                    Write-Warn "gsutil permission denied - falling back to REST API"
                 }
-
                 $ErrorActionPreference = "Stop"
-                Write-Ok "Android uploaded to Firebase Storage"
-                Write-DeployLog "FIREBASE UPLOAD | Android APK + version.json"
             }
-            else {
+            if (-not $gsutilOk) {
                 Write-Step "Uploading via Firebase REST API (gsutil not found)..."
                 $fbToken = Get-FirebaseAccessToken
                 if ($fbToken) {
@@ -1483,7 +1532,9 @@ WScript.Quit 0
                 Write-Fail "Firebase deploy failed!"
                 $failed = $true
             }
-            Complete-Step "web"
+            if (-not $failed) {
+                Complete-Step "web"
+            }
         }
     }
     elseif (Get-StepDone "web") {
