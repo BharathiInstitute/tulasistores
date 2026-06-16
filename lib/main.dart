@@ -34,9 +34,9 @@ import 'package:retaillite/features/notifications/services/windows_notification_
 import 'package:retaillite/firebase_options.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// App version ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â read from pubspec.yaml at runtime (single source of truth)
+/// App version ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â read from pubspec.yaml at runtime (single source of truth)
 /// Initialized in _initializeApp() before any version checks.
-String appVersion = '10.0.3'; // overwritten at startup
+String appVersion = '10.0.4'; // overwritten at startup
 int appBuildNumber = 0; // overwritten at startup
 
 /// Whether Firebase has finished initializing.
@@ -60,12 +60,12 @@ void main() {
       _initializeApp();
     },
     (error, stack) {
-      debugPrint('ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â´ runZonedGuarded caught: $error');
+      debugPrint('ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â´ runZonedGuarded caught: $error');
       if (_firebaseReady) {
-        // Firebase is up ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â use normal error pipeline
+        // Firebase is up ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use normal error pipeline
         ErrorHandler.report(error, stack);
       } else {
-        // Firebase NOT ready ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â save locally for next startup
+        // Firebase NOT ready ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â save locally for next startup
         ErrorLoggingService.savePreFirebaseCrash(error, stack);
       }
     },
@@ -90,7 +90,7 @@ Future<void> _initializeApp() async {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Parallel Firebase init batch ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Parallel Firebase init batch ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
     // These are all independent after Firebase.initializeApp() completes.
     // Running in parallel shaves ~500-800ms off cold start.
     await Future.wait([
@@ -139,7 +139,7 @@ Future<void> _initializeApp() async {
         appVersion = packageInfo.version;
         appBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 0;
         RemoteConfigState.appVersion = appVersion;
-        debugPrint('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â± App version: v$appVersion+$appBuildNumber');
+        debugPrint('ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â± App version: v$appVersion+$appBuildNumber');
       }),
     ]);
 
@@ -195,7 +195,7 @@ Future<void> _initializeApp() async {
       );
       RemoteConfigState.announcement = remoteConfig.getString('announcement');
     } catch (e, st) {
-      debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Remote Config initialization failed: $e');
+      debugPrint('ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Remote Config initialization failed: $e');
       unawaited(
         ErrorLoggingService.logError(
           error: e,
@@ -210,7 +210,7 @@ Future<void> _initializeApp() async {
       PaymentLinkService.setUpiId(merchantUpiId);
     }
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Check maintenance mode ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Check maintenance mode ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
     if (maintenanceMode) {
       runApp(
         MaintenanceScreen(
@@ -223,7 +223,7 @@ Future<void> _initializeApp() async {
       return;
     }
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Check force update ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Check force update ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
     if (_isVersionLower(appVersion, minVersion)) {
       runApp(
         ForceUpdateScreen(
@@ -254,24 +254,24 @@ Future<void> _initializeApp() async {
     // Launch the main app
     runApp(const ProviderScope(child: LiteApp()));
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Update System ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-    // Windows: 5-layer silent ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ dialog ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ force
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Update System ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
+    // Windows: 5-layer silent ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ dialog ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ force
     unawaited(WindowsUpdateService.runBackgroundUpdateCheck());
     // Android: Google Play in-app updates (flexible)
     unawaited(AndroidUpdateService.checkForUpdate());
     // Layer 4 dialog: triggered from app.dart (needs BuildContext)
     // Layer 5 force update: handled above via Remote Config
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Data Retention ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Data Retention ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
     // Auto-cleanup expired data if due (every 7 days)
     unawaited(_runAutoCleanupIfDue());
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ User Metrics ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ User Metrics ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
     // Track user activity for admin dashboard
     unawaited(UserMetricsService.trackActivity());
   } catch (error, stack) {
     // Show error screen with retry option
-    debugPrint('ÃƒÂ¢Ã‚ÂÃ…â€™ App initialization failed: $error');
+    debugPrint('ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ App initialization failed: $error');
     debugPrint('Stack: $stack');
 
     if (!kIsWeb && !isWindows) {
@@ -296,12 +296,12 @@ Future<void> _initializeApp() async {
   }
 }
 
-/// Safely initialize a service ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â logs error but doesn't crash the app
+/// Safely initialize a service ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â logs error but doesn't crash the app
 Future<void> _safeInit(String name, Future<void> Function() init) async {
   try {
     await init();
   } catch (e, st) {
-    debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â $name init failed (non-fatal): $e');
+    debugPrint('ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â $name init failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -331,12 +331,12 @@ Future<void> _runAutoCleanupIfDue() async {
     final result = await service.cleanupExpiredData();
     if (result.totalDeleted > 0) {
       debugPrint(
-        'ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â¹ Auto-cleanup: ${result.billsDeleted} bills, '
+        'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚Â§Ãƒâ€šÃ‚Â¹ Auto-cleanup: ${result.billsDeleted} bills, '
         '${result.expensesDeleted} expenses deleted',
       );
     }
   } catch (e, st) {
-    debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Auto-cleanup failed (non-fatal): $e');
+    debugPrint('ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Auto-cleanup failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,
@@ -362,6 +362,6 @@ bool _isVersionLower(String current, String minimum) {
     }
     return false; // equal
   } catch (_) {
-    return false; // malformed version string ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â don't block
+    return false; // malformed version string ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â don't block
   }
 }

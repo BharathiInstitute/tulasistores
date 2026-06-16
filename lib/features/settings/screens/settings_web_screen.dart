@@ -233,8 +233,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       if (mounted) {
         setState(() => _isBtScanning = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
+          const SnackBar(
+            content: Text(
               'Bluetooth permission denied. Tap to open app settings.',
             ),
             action: SnackBarAction(
