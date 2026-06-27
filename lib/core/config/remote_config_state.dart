@@ -8,13 +8,16 @@ class RemoteConfigState {
   RemoteConfigState._();
 
   /// App version ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set from main.dart at startup
-  static String appVersion = '10.0.3';
+  static String appVersion = '10.0.4';
 
   /// Announcement message from admin (empty = no announcement)
   static String announcement = '';
 
   /// Latest available version (for soft update nudge)
   static String latestVersion = '';
+
+  /// URL to open for force/manual update (store page, download link, etc.)
+  static String forceUpdateUrl = '';
 
   /// Whether a newer version is available
   static bool get hasNewerVersion {

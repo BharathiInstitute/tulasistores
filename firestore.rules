@@ -93,6 +93,13 @@ service cloud.firestore {
       
       // Admins can update user subscription/limits
       allow update: if isAdmin();
+
+      // User's store memberships (for "My Stores" listing)
+      match /stores/{storeId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Owner can write their own store refs (for createStore batch write)
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
       
       // Don't allow deletion
       allow delete: if false;
@@ -248,6 +255,61 @@ service cloud.firestore {
           && isReasonableSize();
         allow delete: if isAuthenticated() && isOwner(userId);
       }
+
+      // ===================
+      // STAFF (sub-collection)
+      // Owner can read/write their staff. Cloud Functions use Admin SDK for create.
+      // ===================
+      match /staff/{staffId} {
+        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isOwner(userId)
+          && isReasonableSize();
+        allow delete: if isAuthenticated() && isOwner(userId);
+
+        // Staff attendance sub-collection
+        match /attendance/{dateId} {
+          allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+          allow create, update: if isAuthenticated() && isOwner(userId)
+            && isReasonableSize();
+          allow delete: if isAuthenticated() && isOwner(userId);
+        }
+
+        // Staff payouts sub-collection
+        match /payouts/{payoutId} {
+          allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+          allow create, update: if isAuthenticated() && isOwner(userId)
+            && isReasonableSize();
+          allow delete: if isAuthenticated() && isOwner(userId);
+        }
+      }
+
+      // ===================
+      // VENDORS (sub-collection)
+      // ===================
+      match /vendors/{vendorId} {
+        allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+        allow create, update: if isAuthenticated() && isOwner(userId)
+          && hasString(request.resource.data.name)
+          && request.resource.data.name.size() <= 200
+          && isReasonableSize();
+        allow delete: if isAuthenticated() && isOwner(userId);
+
+        // Vendor purchases
+        match /purchases/{purchaseId} {
+          allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+          allow create: if isAuthenticated() && isOwner(userId)
+            && isReasonableSize();
+          allow update, delete: if isAuthenticated() && isOwner(userId);
+        }
+
+        // Vendor payments
+        match /payments/{paymentId} {
+          allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+          allow create: if isAuthenticated() && isOwner(userId)
+            && isReasonableSize();
+          allow update, delete: if isAuthenticated() && isOwner(userId);
+        }
+      }
       
       // ===================
       // SUBSCRIPTION AUDIT (admin-only audit trail)
@@ -272,6 +334,194 @@ service cloud.firestore {
       match /counters/{counterId} {
         allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
         allow write: if isAuthenticated() && isOwner(userId) && isReasonableSize();
+      }
+    }
+
+    // ===================
+    // STORES (multi-store entities)
+    // ===================
+    match /stores/{storeId} {
+      // Store doc: members can read; owner can always read via ownerUid fallback
+      allow read: if isAuthenticated() && (
+        exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+        || resource.data.ownerUid == request.auth.uid
+      );
+      allow create: if isAuthenticated();
+      // Owner can update (normal case: via member record;
+      // fallback: via ownerUid field for partial-init recovery)
+      allow update: if isAuthenticated() && (
+        (exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid)).data.role == 'owner')
+        || resource.data.ownerUid == request.auth.uid
+      );
+      allow delete: if false;
+
+      // Members subcollection: readable by any member OR by store owner (fallback)
+      match /members/{memberUid} {
+        allow read: if isAuthenticated() && (
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+        );
+        // Allow user to create themselves as owner when initializing a new store
+        // (guarded: store doc must name them as ownerUid)
+        allow create: if isAuthenticated()
+            && request.auth.uid == memberUid
+            && request.resource.data.role == 'owner'
+            && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid;
+        // Owner can update members (role, permissions); deletes only via Cloud Functions
+        allow update: if isAuthenticated() && (
+            (exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+              && get(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid)).data.role == 'owner')
+            || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+        );
+        allow delete: if false;
+
+        // Attendance subcollection under members (for multi-store attendance tracking)
+        match /attendance/{dateId} {
+          allow read: if isAuthenticated() && (
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+          );
+          // Members can write their own attendance (auto check-in/out)
+          // Owner/managers can write anyone's attendance (admin marking)
+          allow write: if isAuthenticated() && (
+            request.auth.uid == memberUid
+            || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+            || (exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+                && get(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid)).data.role in ['owner', 'manager'])
+          ) && isReasonableSize();
+        }
+
+        // Payouts subcollection under members
+        match /payouts/{payoutId} {
+          allow read: if isAuthenticated() && (
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+          );
+          allow write: if isAuthenticated() && (
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+          ) && isReasonableSize();
+        }
+      }
+
+      // Store data subcollections: accessible by any member of the store
+      match /products/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+      }
+
+      match /bills/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow create: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+        allow update: if false;
+        allow delete: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+      }
+
+      match /customers/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+        
+        match /transactions/{txnId} {
+          allow read: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+          allow write: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            && isReasonableSize();
+        }
+      }
+
+      match /vendors/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+        
+        match /{sub}/{subDocId} {
+          allow read: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+          allow write: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            && isReasonableSize();
+        }
+      }
+
+      match /staff/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+        
+        match /{sub}/{subDocId} {
+          allow read: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+          allow write: if isAuthenticated() && 
+            exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+            && isReasonableSize();
+        }
+      }
+
+      match /expenses/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+      }
+
+      match /transactions/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+      }
+
+      match /counters/{docId} {
+        allow read, write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+      }
+
+      match /notifications/{docId} {
+        allow read, update, delete: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow create: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
+      }
+
+      match /settings/{docId} {
+        // All store members (and the store owner) can read settings
+        allow read: if isAuthenticated() && (
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          || get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+        );
+        // Only owner or manager can write/change settings
+        allow write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/stores/$(storeId)).data.ownerUid == request.auth.uid
+          || (exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+              && get(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid)).data.role in ['owner', 'manager'])
+        ) && isReasonableSize();
+      }
+
+      match /attendance/{docId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid));
+        allow write: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/stores/$(storeId)/members/$(request.auth.uid))
+          && isReasonableSize();
       }
     }
     

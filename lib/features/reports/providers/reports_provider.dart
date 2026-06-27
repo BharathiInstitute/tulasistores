@@ -8,6 +8,7 @@ import 'package:retaillite/core/services/demo_data_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
 import 'package:retaillite/features/products/providers/products_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/bill_model.dart';
 import 'package:retaillite/models/expense_model.dart';
 import 'package:retaillite/models/sales_summary_model.dart';
@@ -51,6 +52,7 @@ Stream<List<BillModel>> _getBillsStreamForRange(
 /// Sales summary provider — real-time stream from Firestore
 final salesSummaryProvider = StreamProvider.autoDispose<SalesSummary>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider); // re-subscribe on store change
   final period = ref.watch(selectedPeriodProvider);
   final offset = ref.watch(periodOffsetProvider);
   final customRange = ref.watch(customDateRangeProvider);
@@ -135,6 +137,7 @@ final salesSummaryProvider = StreamProvider.autoDispose<SalesSummary>((ref) {
 /// Bills for the selected period — real-time stream from Firestore
 final periodBillsProvider = StreamProvider.autoDispose<List<BillModel>>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider);
   final period = ref.watch(selectedPeriodProvider);
   final offset = ref.watch(periodOffsetProvider);
   final customRange = ref.watch(customDateRangeProvider);
@@ -197,6 +200,7 @@ final dashboardBillsProvider = StreamProvider.autoDispose<List<BillModel>>((
   ref,
 ) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider);
   final now = DateTime.now();
   final end = now;
   final start = now.subtract(const Duration(days: 7));

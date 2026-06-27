@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
 import 'package:retaillite/features/notifications/providers/notification_provider.dart';
 import 'package:retaillite/features/notifications/widgets/notification_bell.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
+import 'package:retaillite/core/utils/permission_guard.dart';
 import 'package:retaillite/shared/widgets/global_sync_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -124,6 +126,10 @@ class _WebSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final activeStore = ref.watch(activeStoreProvider).valueOrNull;
+    // Use active store name if available, else fall back to user profile
+    final shopName =
+        activeStore?.shopName ?? user?.shopName ?? AppConstants.defaultShopName;
     // Identify if we are in settings (since it might be outside standard index)
     final isSettings = currentPath.startsWith(AppRoutes.settings);
     final userToggle = ref.watch(sidebarCollapsedProvider);
@@ -151,7 +157,7 @@ class _WebSidebar extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
-                          user?.shopName ?? AppConstants.defaultShopName,
+                          shopName,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -162,41 +168,6 @@ class _WebSidebar extends ConsumerWidget {
                       ),
                     ],
                   ),
-          ),
-
-          // Collapse / Expand toggle button
-          Container(
-            alignment: isCollapsed ? Alignment.center : Alignment.centerRight,
-            padding: EdgeInsets.symmetric(
-              horizontal: isCollapsed ? 0 : 16,
-              vertical: 4,
-            ),
-            child: InkWell(
-              onTap: () {
-                ref.read(sidebarCollapsedProvider.notifier).state =
-                    !isCollapsed;
-              },
-              borderRadius: BorderRadius.circular(6),
-              child: Tooltip(
-                message: isCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    isCollapsed
-                        ? Icons.chevron_right_rounded
-                        : Icons.chevron_left_rounded,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
           ),
 
           const SizedBox(height: 8),
@@ -213,34 +184,111 @@ class _WebSidebar extends ConsumerWidget {
                   isCollapsed: isCollapsed,
                   onTap: () => onItemTapped(0),
                 ),
+                if (canView(ref, 'customers'))
+                  _SidebarItem(
+                    icon: Icons.account_balance_wallet_outlined,
+                    label: 'Khata Ledger',
+                    isSelected: selectedIndex == 1,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(1),
+                  ),
+                if (canView(ref, 'inventory'))
+                  _SidebarItem(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Inventory',
+                    isSelected: selectedIndex == 2,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(2),
+                  ),
+                if (canView(ref, 'dashboard'))
+                  _SidebarItem(
+                    icon: Icons.dashboard_outlined,
+                    label: 'Dashboard',
+                    isSelected: selectedIndex == 3,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(3),
+                  ),
+                if (canView(ref, 'bills'))
+                  _SidebarItem(
+                    icon: Icons.receipt_outlined,
+                    label: 'Bills',
+                    isSelected: selectedIndex == 4,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(4),
+                  ),
+                if (canView(ref, 'staff'))
+                  _SidebarItem(
+                    icon: Icons.people_outlined,
+                    label: 'Staff',
+                    isSelected: selectedIndex == 5,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(5),
+                  ),
                 _SidebarItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Khata Ledger',
-                  isSelected: selectedIndex == 1,
+                  icon: Icons.fingerprint,
+                  label: 'My Attendance',
+                  isSelected: selectedIndex == 6,
                   isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(1),
+                  onTap: () => onItemTapped(6),
                 ),
+                if (canView(ref, 'vendors'))
+                  _SidebarItem(
+                    icon: Icons.storefront_outlined,
+                    label: 'Vendors',
+                    isSelected: selectedIndex == 7,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(7),
+                  ),
+
+                // Collapse / Expand toggle (middle)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: InkWell(
+                    onTap: () {
+                      ref.read(sidebarCollapsedProvider.notifier).state =
+                          !isCollapsed;
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Tooltip(
+                      message: isCollapsed
+                          ? 'Expand sidebar'
+                          : 'Collapse sidebar',
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          isCollapsed
+                              ? Icons.chevron_right_rounded
+                              : Icons.chevron_left_rounded,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const Divider(height: 16),
+
                 _SidebarItem(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'Inventory',
-                  isSelected: selectedIndex == 2,
+                  icon: Icons.store_outlined,
+                  label: 'My Stores',
+                  isSelected: selectedIndex == 8,
                   isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(2),
+                  onTap: () => onItemTapped(8),
                 ),
-                _SidebarItem(
-                  icon: Icons.dashboard_outlined,
-                  label: 'Dashboard',
-                  isSelected: selectedIndex == 3,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(3),
-                ),
-                _SidebarItem(
-                  icon: Icons.receipt_outlined,
-                  label: 'Bills',
-                  isSelected: selectedIndex == 4,
-                  isCollapsed: isCollapsed,
-                  onTap: () => onItemTapped(4),
-                ),
+                if (canView(ref, 'userManagement'))
+                  _SidebarItem(
+                    icon: Icons.manage_accounts_outlined,
+                    label: 'User Management',
+                    isSelected: selectedIndex == 9,
+                    isCollapsed: isCollapsed,
+                    onTap: () => onItemTapped(9),
+                  ),
 
                 const Divider(height: 32),
 
@@ -354,12 +402,6 @@ class _WebSidebar extends ConsumerWidget {
             ),
           ),
 
-          // Sync indicator — always visible in sidebar
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: GlobalSyncIndicator(),
-          ),
-
           // User Profile Card (Bottom of Sidebar) - Navigates to Settings
           GestureDetector(
             onTap: () => context.go('/settings/general'),
@@ -381,6 +423,8 @@ class _WebSidebar extends ConsumerWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          const GlobalSyncIndicator(),
+                          const SizedBox(height: 4),
                           Icon(
                             Icons.settings_outlined,
                             size: 22,
@@ -432,27 +476,39 @@ class _WebSidebar extends ConsumerWidget {
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                'Owner',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final role = ref.watch(myRoleProvider);
+                                  return Text(
+                                    role.displayName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
                               ),
                               const SizedBox(height: 4),
                               const PlanBadge(),
                             ],
                           ),
                         ),
-                        Icon(
-                          Icons.settings_outlined,
-                          size: 18,
-                          color: isSettings
-                              ? AppColors.primary
-                              : Theme.of(context).colorScheme.outline,
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const GlobalSyncIndicator(compact: true),
+                            const SizedBox(height: 4),
+                            Icon(
+                              Icons.settings_outlined,
+                              size: 18,
+                              color: isSettings
+                                  ? AppColors.primary
+                                  : Theme.of(context).colorScheme.outline,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -464,7 +520,7 @@ class _WebSidebar extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Text(
-                'Powered by ${AppConstants.appName}',
+                'Powered by Tulasi ERP',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,

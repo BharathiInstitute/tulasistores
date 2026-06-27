@@ -39,6 +39,14 @@ import 'package:retaillite/features/super_admin/screens/referrals_admin_screen.d
 import 'package:retaillite/features/super_admin/screens/support_admin_screen.dart';
 import 'package:retaillite/features/super_admin/screens/admin_chat_screen.dart';
 import 'package:retaillite/features/super_admin/providers/super_admin_provider.dart';
+import 'package:retaillite/features/staff/screens/staff_list_screen.dart';
+import 'package:retaillite/features/staff/screens/staff_detail_screen.dart';
+import 'package:retaillite/features/staff/screens/attendance_screen.dart';
+import 'package:retaillite/features/staff/screens/my_attendance_screen.dart';
+import 'package:retaillite/features/vendor/screens/vendor_list_screen.dart';
+import 'package:retaillite/features/vendor/screens/vendor_detail_screen.dart';
+import 'package:retaillite/features/store/screens/my_stores_screen.dart';
+import 'package:retaillite/features/store/screens/user_management_screen.dart';
 import 'package:retaillite/features/support/screens/my_tickets_screen.dart';
 import 'package:retaillite/features/support/screens/ticket_chat_screen.dart';
 import 'package:retaillite/features/notifications/screens/notifications_screen.dart';
@@ -64,6 +72,14 @@ class AppRoutes {
   static const String productDetail = '/product/:id';
   static const String dashboard = '/dashboard';
   static const String bills = '/bills';
+  static const String staff = '/staff';
+  static const String staffDetail = '/staff/:id';
+  static const String attendance = '/attendance';
+  static const String myAttendance = '/my-attendance';
+  static const String vendors = '/vendors';
+  static const String vendorDetail = '/vendors/:id';
+  static const String myStores = '/my-stores';
+  static const String userManagement = '/user-management';
   static const String settings = '/settings';
   static const String settingsTab = '/settings/:tab';
   static const String themeSettings = '/settings/theme';
@@ -220,9 +236,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Regular user: Logged in but shop setup not complete
       // Super admins bypass shop setup entirely
+      // Users with store memberships (created via Add User) also bypass
       if (!isShopSetupComplete && !isSuperAdminUser) {
-        // Allow shop setup route
-        if (isShopSetupRoute) return null;
+        // Allow shop setup route and my-stores route
+        if (isShopSetupRoute || currentPath == AppRoutes.myStores) return null;
         // Redirect to shop setup
         return AppRoutes.shopSetup;
       }
@@ -277,6 +294,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.shopSetup,
         builder: (context, state) => const ShopSetupScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.myStores,
+        builder: (context, state) => const MyStoresScreen(),
+      ),
 
       // Main app shell with tabs
       ShellRoute(
@@ -307,10 +328,47 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: BillsHistoryScreen()),
           ),
+          GoRoute(
+            path: AppRoutes.staff,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StaffListScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.attendance,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: AttendanceScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.myAttendance,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MyAttendanceScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.staffDetail,
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return NoTransitionPage(child: StaffDetailScreen(staffId: id));
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.vendors,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: VendorListScreen()),
+          ),
+          GoRoute(
+            path: AppRoutes.vendorDetail,
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return NoTransitionPage(child: VendorDetailScreen(vendorId: id));
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.userManagement,
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: UserManagementScreen()),
+          ),
         ],
       ),
-
-      // Settings — full-width (outside shell, has its own side nav)
       GoRoute(
         path: AppRoutes.settingsTab,
         pageBuilder: (context, state) {

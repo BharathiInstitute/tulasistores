@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:retaillite/core/services/demo_data_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/bill_model.dart';
 import 'package:retaillite/models/expense_model.dart';
 
@@ -63,6 +64,7 @@ final filteredExpensesProvider = StreamProvider.autoDispose<List<ExpenseModel>>(
   (ref) {
     final filter = ref.watch(billsFilterProvider);
     final isDemoMode = ref.watch(authNotifierProvider).isDemoMode;
+    ref.watch(activeStoreIdProvider); // re-subscribe on store change
 
     Stream<List<ExpenseModel>> source;
     if (isDemoMode) {
@@ -117,6 +119,7 @@ final filteredBillsProvider = StreamProvider.autoDispose<List<BillModel>>((
 ) {
   final filter = ref.watch(billsFilterProvider);
   final isDemoMode = ref.watch(authNotifierProvider).isDemoMode;
+  ref.watch(activeStoreIdProvider); // re-subscribe on store change
 
   Stream<List<BillModel>> source;
   if (isDemoMode) {
@@ -167,6 +170,7 @@ final billsSyncStatusProvider = StreamProvider.autoDispose<Map<String, bool>>((
   ref,
 ) {
   final isDemoMode = ref.watch(authNotifierProvider).isDemoMode;
+  ref.watch(activeStoreIdProvider);
   if (isDemoMode) return Stream.value({});
   return OfflineStorageService.billsSyncStream();
 });
@@ -175,6 +179,7 @@ final billsSyncStatusProvider = StreamProvider.autoDispose<Map<String, bool>>((
 final expensesSyncStatusProvider =
     StreamProvider.autoDispose<Map<String, bool>>((ref) {
       final isDemoMode = ref.watch(authNotifierProvider).isDemoMode;
+      ref.watch(activeStoreIdProvider);
       if (isDemoMode) return Stream.value({});
       return OfflineStorageService.expensesSyncStream();
     });

@@ -8,6 +8,7 @@ import 'package:retaillite/core/services/demo_data_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
 import 'package:retaillite/features/khata/providers/khata_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/customer_model.dart';
 import 'package:retaillite/models/transaction_model.dart';
 
@@ -37,6 +38,7 @@ class KhataStats {
 /// Uses a Firestore stream on non-demo, DemoDataService on demo.
 final _todayPaymentTotalProvider = StreamProvider<double>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider);
   if (isDemoMode) {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);

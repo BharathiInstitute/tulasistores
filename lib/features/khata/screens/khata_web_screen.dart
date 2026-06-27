@@ -13,6 +13,7 @@ import 'package:retaillite/features/khata/providers/khata_stats_provider.dart';
 import 'package:retaillite/features/khata/widgets/add_customer_modal.dart';
 import 'package:retaillite/features/khata/widgets/give_udhaar_modal.dart';
 import 'package:retaillite/features/khata/widgets/record_payment_modal.dart';
+import 'package:retaillite/core/utils/permission_guard.dart';
 import 'package:retaillite/l10n/app_localizations.dart';
 import 'package:retaillite/models/customer_model.dart';
 import 'package:retaillite/models/transaction_model.dart';
@@ -499,11 +500,20 @@ class _KhataWebScreenState extends ConsumerState<KhataWebScreen> {
   }
 
   void _showAddCustomerModal({CustomerModel? customer}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => AddCustomerModal(customer: customer),
+    final action = customer != null ? PermAction.edit : PermAction.create;
+    guardAction(
+      context,
+      ref,
+      'customers',
+      action,
+      onAllowed: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => AddCustomerModal(customer: customer),
+        );
+      },
     );
   }
 }
@@ -901,7 +911,14 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'delete') {
-                _showDeleteConfirmation(context, ref, customer);
+                guardAction(
+                  context,
+                  ref,
+                  'customers',
+                  PermAction.delete,
+                  onAllowed: () =>
+                      _showDeleteConfirmation(context, ref, customer),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -926,11 +943,20 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
   }
 
   void _showAddCustomerModal({CustomerModel? customer}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => AddCustomerModal(customer: customer),
+    final action = customer != null ? PermAction.edit : PermAction.create;
+    guardAction(
+      context,
+      ref,
+      'customers',
+      action,
+      onAllowed: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => AddCustomerModal(customer: customer),
+        );
+      },
     );
   }
 
@@ -1083,7 +1109,13 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => _showUdhaarModal(context, customer),
+              onPressed: () => guardAction(
+                context,
+                ref,
+                'customers',
+                PermAction.create,
+                onAllowed: () => _showUdhaarModal(context, customer),
+              ),
               icon: const Icon(Icons.remove_circle_outline, size: 16),
               label: const Text('Give Udhaar'),
               style: OutlinedButton.styleFrom(
@@ -1096,7 +1128,13 @@ class _CustomerDetailPanelState extends ConsumerState<_CustomerDetailPanel> {
           const SizedBox(width: 10),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () => _showPaymentModal(context, customer),
+              onPressed: () => guardAction(
+                context,
+                ref,
+                'customers',
+                PermAction.create,
+                onAllowed: () => _showPaymentModal(context, customer),
+              ),
               icon: const Icon(Icons.check_circle_outline, size: 16),
               label: const Text('Receive Pay'),
               style: ElevatedButton.styleFrom(

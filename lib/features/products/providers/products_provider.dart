@@ -4,31 +4,30 @@ library;
 
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
 import 'package:retaillite/core/utils/id_generator.dart';
 import 'package:retaillite/core/services/user_metrics_service.dart';
 import 'package:retaillite/core/services/demo_data_service.dart';
+import 'package:retaillite/core/services/active_store.dart';
 import 'package:retaillite/core/services/performance_service.dart';
 import 'package:retaillite/core/services/sync_status_service.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/product_model.dart';
 
 /// Firestore instance (Firebase singletons — safe as top-level)
 final _firestore = FirebaseFirestore.instance;
-final _auth = FirebaseAuth.instance;
 
 /// Get user's products collection path.
-/// Throws if no user is signed in to prevent accidental writes to a
-/// global 'products' collection.
+/// Uses ActiveStore.basePath for multi-store support.
 String get _productsPath {
-  final uid = _auth.currentUser?.uid;
-  if (uid == null) {
+  final path = ActiveStore.basePath;
+  if (path.isEmpty) {
     throw StateError('Cannot access products: no user signed in');
   }
-  return 'users/$uid/products';
+  return '$path/products';
 }
 
 /// Products list provider - reads from Firestore OR demo data
@@ -37,6 +36,7 @@ Map<String, bool> _lastProductSyncStatus = {};
 
 final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider); // re-subscribe on store change
 
   // Demo mode: return local demo data as a stream
   if (isDemoMode) {
@@ -56,6 +56,7 @@ final productsProvider = StreamProvider.autoDispose<List<ProductModel>>((ref) {
       .snapshots()
       .map((snapshot) {
         final products = snapshot.docs
+            .where((doc) => doc.id != '_init') // skip placeholder docs
             .map((doc) => ProductModel.fromFirestore(doc))
             .toList();
         // Report sync status
@@ -114,6 +115,7 @@ final productsSyncStatusProvider =
 final productByIdProvider = StreamProvider.autoDispose
     .family<ProductModel?, String>((ref, id) {
       final isDemoMode = ref.watch(isDemoModeProvider);
+      ref.watch(activeStoreIdProvider); // re-subscribe on store change
 
       if (isDemoMode) {
         final products = DemoDataService.getProducts();

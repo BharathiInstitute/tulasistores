@@ -13,6 +13,7 @@ import 'package:retaillite/features/khata/providers/khata_provider.dart';
 import 'package:retaillite/features/khata/widgets/add_customer_modal.dart';
 import 'package:retaillite/features/khata/widgets/give_udhaar_modal.dart';
 import 'package:retaillite/features/khata/widgets/record_payment_modal.dart';
+import 'package:retaillite/core/utils/permission_guard.dart';
 import 'package:retaillite/l10n/app_localizations.dart';
 import 'package:retaillite/models/customer_model.dart';
 import 'package:retaillite/models/transaction_model.dart';
@@ -62,13 +63,26 @@ class CustomerDetailScreen extends ConsumerWidget {
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit),
-                onPressed: () => _showEditModal(context, customer),
+                onPressed: () => guardAction(
+                  context,
+                  ref,
+                  'customers',
+                  PermAction.edit,
+                  onAllowed: () => _showEditModal(context, customer),
+                ),
                 tooltip: 'Edit Details',
               ),
               PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'delete') {
-                    _showDeleteConfirmation(context, ref, customer);
+                    guardAction(
+                      context,
+                      ref,
+                      'customers',
+                      PermAction.delete,
+                      onAllowed: () =>
+                          _showDeleteConfirmation(context, ref, customer),
+                    );
                   }
                 },
                 itemBuilder: (context) => [
@@ -496,7 +510,13 @@ class CustomerDetailScreen extends ConsumerWidget {
                   if (customer.hasDue) const SizedBox(width: 6),
                   Expanded(
                     child: _ActionButton(
-                      onPressed: () => _showUdhaarModal(context, customer),
+                      onPressed: () => guardAction(
+                        context,
+                        ref,
+                        'customers',
+                        PermAction.create,
+                        onAllowed: () => _showUdhaarModal(context, customer),
+                      ),
                       icon: Icons.add_circle_outline,
                       label: 'Udhaar',
                       isOutlined: true,
@@ -506,7 +526,13 @@ class CustomerDetailScreen extends ConsumerWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: _ActionButton(
-                      onPressed: () => _showPaymentModal(context, customer),
+                      onPressed: () => guardAction(
+                        context,
+                        ref,
+                        'customers',
+                        PermAction.create,
+                        onAllowed: () => _showPaymentModal(context, customer),
+                      ),
                       icon: Icons.currency_rupee,
                       label: 'Pay',
                       isOutlined: false,

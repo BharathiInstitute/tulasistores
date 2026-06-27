@@ -7,11 +7,13 @@ import 'package:retaillite/core/services/demo_data_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/core/utils/id_generator.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/bill_model.dart';
 
 /// Today's bills provider - reads from demo data or Firestore
 final todayBillsProvider = FutureProvider<List<BillModel>>((ref) async {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider); // re-fetch on store change
   final today = DateTime.now();
   final startOfDay = DateTime(today.year, today.month, today.day);
   final endOfDay = startOfDay.add(const Duration(days: 1));

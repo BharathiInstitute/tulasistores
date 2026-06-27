@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onSupportMessage = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.verifyPayment = exports.createOrder = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.createPaymentToken = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.transferStoreOwnership = exports.removeStoreUser = exports.createStoreUser = exports.deactivateStaffUser = exports.createStaffUser = exports.onSupportMessage = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.verifyPayment = exports.createOrder = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.createPaymentToken = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -2571,8 +2571,290 @@ exports.onSupportMessage = functions
             console.log(`📱 Support push to ${storeId}: ${response.successCount} sent`);
         }
         catch (e) {
-            console.error(`❌ FCM to store ${storeId}:`, e);
+            console.error('FCM to store error:', e);
         }
     }
+});
+// --- Staff Management -------------------------------------------------------
+/**
+ * Create a staff member with Firebase Auth account.
+ * Called by the shop owner to create a new staff user with email/password.
+ */
+exports.createStaffUser = functions
+    .region("asia-south1")
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const { email, password, name, phone, role, salary, storeId } = data;
+    if (!email || !password || !name) {
+        throw new functions.https.HttpsError("invalid-argument", "email, password, and name are required");
+    }
+    if (password.length < 6) {
+        throw new functions.https.HttpsError("invalid-argument", "Password must be at least 6 characters");
+    }
+    const ownerId = context.auth.uid;
+    const db = admin.firestore();
+    // Determine the base path for staff collection
+    // If storeId is provided and differs from ownerId, use stores/{storeId}
+    // Otherwise use legacy users/{ownerId} path
+    const basePath = (storeId && storeId !== ownerId)
+        ? `stores/${storeId}`
+        : `users/${ownerId}`;
+    try {
+        // Create Firebase Auth user for the staff member
+        const userRecord = await admin.auth().createUser({
+            email: email.toLowerCase().trim(),
+            password: password,
+            displayName: name,
+            disabled: false,
+        });
+        // Set custom claims to link staff to owner
+        await admin.auth().setCustomUserClaims(userRecord.uid, {
+            staffOf: ownerId,
+            role: role || "helper",
+        });
+        // Store staff document under the resolved base path
+        await db.doc(`${basePath}/staff/${userRecord.uid}`).set({
+            uid: userRecord.uid,
+            name: name,
+            email: email.toLowerCase().trim(),
+            phone: phone || "",
+            role: role || "helper",
+            salary: salary || 0,
+            joiningDate: admin.firestore.FieldValue.serverTimestamp(),
+            isActive: true,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Staff created: ${name} (${email}) for owner ${ownerId}`);
+        return {
+            success: true,
+            uid: userRecord.uid,
+            message: `Staff member ${name} created successfully`,
+        };
+    }
+    catch (error) {
+        const err = error;
+        if (err.code === "auth/email-already-exists") {
+            throw new functions.https.HttpsError("already-exists", "A user with this email already exists");
+        }
+        if (err.code === "auth/invalid-email") {
+            throw new functions.https.HttpsError("invalid-argument", "Invalid email address");
+        }
+        console.error("Staff creation error:", error);
+        throw new functions.https.HttpsError("internal", err.message || "Failed to create staff user");
+    }
+});
+/**
+ * Deactivate a staff member's Firebase Auth account.
+ */
+exports.deactivateStaffUser = functions
+    .region("asia-south1")
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const { staffUid } = data;
+    if (!staffUid) {
+        throw new functions.https.HttpsError("invalid-argument", "staffUid is required");
+    }
+    const ownerId = context.auth.uid;
+    const db = admin.firestore();
+    // Verify the staff belongs to this owner
+    const staffDoc = await db
+        .collection("users")
+        .doc(ownerId)
+        .collection("staff")
+        .doc(staffUid)
+        .get();
+    if (!staffDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Staff member not found");
+    }
+    try {
+        await admin.auth().updateUser(staffUid, { disabled: true });
+        await staffDoc.ref.update({
+            isActive: false,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true, message: "Staff member deactivated" };
+    }
+    catch (error) {
+        console.error("Staff deactivation error:", error);
+        throw new functions.https.HttpsError("internal", "Failed to deactivate staff");
+    }
+});
+// --- Multi-Store User Management ------------------------------------------
+/**
+ * Create a new user and add them as a member to a store.
+ * Creates Firebase Auth account + store membership + user store ref.
+ */
+exports.createStoreUser = functions
+    .region("asia-south1")
+    .https.onCall(async (data, context) => {
+    var _a, _b;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const { storeId, email, displayName, password, role, permissions } = data;
+    if (!storeId || !email || !displayName || !password) {
+        throw new functions.https.HttpsError("invalid-argument", "storeId, email, displayName, password required");
+    }
+    if (password.length < 6) {
+        throw new functions.https.HttpsError("invalid-argument", "Password must be at least 6 characters");
+    }
+    const db = admin.firestore();
+    const callerUid = context.auth.uid;
+    // Verify caller is owner or manager of the store
+    const callerMember = await db.doc(`stores/${storeId}/members/${callerUid}`).get();
+    if (!callerMember.exists) {
+        throw new functions.https.HttpsError("permission-denied", "You are not a member of this store");
+    }
+    const callerRole = (_a = callerMember.data()) === null || _a === void 0 ? void 0 : _a.role;
+    if (callerRole !== "owner" && callerRole !== "manager") {
+        throw new functions.https.HttpsError("permission-denied", "Only owners and managers can add users");
+    }
+    try {
+        // Create or get existing Firebase Auth user
+        let userRecord;
+        try {
+            userRecord = await admin.auth().getUserByEmail(email.toLowerCase().trim());
+        }
+        catch (_c) {
+            userRecord = await admin.auth().createUser({
+                email: email.toLowerCase().trim(),
+                password: password,
+                displayName: displayName,
+                disabled: false,
+            });
+        }
+        const batch = db.batch();
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        // Get store info for shop name
+        const storeDoc = await db.doc(`stores/${storeId}`).get();
+        const shopName = ((_b = storeDoc.data()) === null || _b === void 0 ? void 0 : _b.shopName) || storeId;
+        // Create/update user document with shop setup marked complete
+        // This prevents the app from showing the "Set Up Your Shop" screen
+        batch.set(db.doc(`users/${userRecord.uid}`), {
+            email: email.toLowerCase().trim(),
+            ownerName: displayName,
+            shopName: `${shopName} (Member)`,
+            isShopSetupComplete: true,
+            createdAt: now,
+        }, { merge: true });
+        // Add as member in store
+        batch.set(db.doc(`stores/${storeId}/members/${userRecord.uid}`), {
+            displayName: displayName,
+            email: email.toLowerCase().trim(),
+            role: role || "cashier",
+            permissions: permissions || {},
+            joinedAt: now,
+            isActive: true,
+        });
+        // Add store ref under user
+        batch.set(db.doc(`users/${userRecord.uid}/stores/${storeId}`), {
+            shopName: shopName,
+            role: role || "cashier",
+            isActive: true,
+        });
+        // Also create a staff doc so this member shows in the staff/attendance panel
+        batch.set(db.doc(`stores/${storeId}/staff/${userRecord.uid}`), {
+            uid: userRecord.uid,
+            name: displayName,
+            email: email.toLowerCase().trim(),
+            phone: "",
+            role: role || "cashier",
+            salary: 0,
+            joiningDate: now,
+            isActive: true,
+            createdAt: now,
+        });
+        await batch.commit();
+        console.log(`Store user created: ${displayName} (${email}) -> store ${storeId}`);
+        return { success: true, uid: userRecord.uid };
+    }
+    catch (error) {
+        const err = error;
+        if (err.code === "auth/email-already-exists") {
+            throw new functions.https.HttpsError("already-exists", "Email already exists");
+        }
+        console.error("createStoreUser error:", error);
+        throw new functions.https.HttpsError("internal", err.message || "Failed to create user");
+    }
+});
+/**
+ * Remove a user from a store (does NOT delete their Firebase Auth account).
+ */
+exports.removeStoreUser = functions
+    .region("asia-south1")
+    .https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const { storeId, memberUid } = data;
+    if (!storeId || !memberUid) {
+        throw new functions.https.HttpsError("invalid-argument", "storeId and memberUid required");
+    }
+    const db = admin.firestore();
+    const callerUid = context.auth.uid;
+    // Verify caller is owner
+    const callerMember = await db.doc(`stores/${storeId}/members/${callerUid}`).get();
+    if (!callerMember.exists || ((_a = callerMember.data()) === null || _a === void 0 ? void 0 : _a.role) !== "owner") {
+        throw new functions.https.HttpsError("permission-denied", "Only the owner can remove users");
+    }
+    // Cannot remove yourself (owner)
+    if (memberUid === callerUid) {
+        throw new functions.https.HttpsError("failed-precondition", "Cannot remove yourself. Transfer ownership first.");
+    }
+    const batch = db.batch();
+    batch.delete(db.doc(`stores/${storeId}/members/${memberUid}`));
+    batch.delete(db.doc(`users/${memberUid}/stores/${storeId}`));
+    await batch.commit();
+    console.log(`Removed user ${memberUid} from store ${storeId}`);
+    return { success: true };
+});
+/**
+ * Transfer store ownership to another member.
+ */
+exports.transferStoreOwnership = functions
+    .region("asia-south1")
+    .https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be authenticated");
+    }
+    const { storeId, newOwnerUid } = data;
+    if (!storeId || !newOwnerUid) {
+        throw new functions.https.HttpsError("invalid-argument", "storeId and newOwnerUid required");
+    }
+    const db = admin.firestore();
+    const callerUid = context.auth.uid;
+    // Verify caller is current owner
+    const callerMember = await db.doc(`stores/${storeId}/members/${callerUid}`).get();
+    if (!callerMember.exists || ((_a = callerMember.data()) === null || _a === void 0 ? void 0 : _a.role) !== "owner") {
+        throw new functions.https.HttpsError("permission-denied", "Only the owner can transfer ownership");
+    }
+    // Verify new owner is a member
+    const newOwnerMember = await db.doc(`stores/${storeId}/members/${newOwnerUid}`).get();
+    if (!newOwnerMember.exists) {
+        throw new functions.https.HttpsError("not-found", "New owner is not a member of this store");
+    }
+    const newOwnerData = newOwnerMember.data();
+    const batch = db.batch();
+    // Demote current owner to manager
+    batch.update(db.doc(`stores/${storeId}/members/${callerUid}`), { role: "manager" });
+    batch.update(db.doc(`users/${callerUid}/stores/${storeId}`), { role: "manager" });
+    // Promote new owner
+    batch.update(db.doc(`stores/${storeId}/members/${newOwnerUid}`), { role: "owner" });
+    batch.update(db.doc(`users/${newOwnerUid}/stores/${storeId}`), { role: "owner" });
+    // Update store doc
+    batch.update(db.doc(`stores/${storeId}`), {
+        ownerUid: newOwnerUid,
+        ownerName: newOwnerData.displayName || "",
+        ownerEmail: newOwnerData.email || "",
+    });
+    await batch.commit();
+    console.log(`Ownership transferred: store ${storeId} from ${callerUid} to ${newOwnerUid}`);
+    return { success: true };
 });
 //# sourceMappingURL=index.js.map

@@ -7,9 +7,9 @@ library;
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
+import 'package:retaillite/core/services/active_store.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
 import 'package:retaillite/core/services/performance_service.dart';
 import 'package:retaillite/core/services/sync_status_service.dart';
@@ -397,7 +397,6 @@ class OfflineStorageService {
   static bool _initialized = false;
   static SharedPreferences? _prefs;
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
 
   /// Expose prefs for direct access (e.g., route persistence)
   static SharedPreferences? get prefs => _prefs;
@@ -411,11 +410,7 @@ class OfflineStorageService {
   }
 
   /// Get user's collection path
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return ''; // Not logged in
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStore.basePath;
 
   /// Initialize storage (Firestore offline is already enabled in SyncSettingsService)
   static Future<void> initialize() async {
@@ -680,6 +675,7 @@ class OfflineStorageService {
 
     return query.snapshots().map((snapshot) {
       final bills = snapshot.docs
+          .where((doc) => doc.id != '_init')
           .map((doc) => BillModel.fromFirestore(doc))
           .toList();
       // Report sync status
@@ -831,6 +827,7 @@ class OfflineStorageService {
 
     return query.snapshots().map((snapshot) {
       final expenses = snapshot.docs
+          .where((doc) => doc.id != '_init')
           .map((doc) => ExpenseModel.fromFirestore(doc))
           .toList();
       // Report sync status
@@ -1042,6 +1039,7 @@ class OfflineStorageService {
         .snapshots()
         .map((snapshot) {
           final customers = snapshot.docs
+              .where((doc) => doc.id != '_init')
               .map((doc) => CustomerModel.fromFirestore(doc))
               .toList();
           // Report sync status

@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:retaillite/core/services/connectivity_service.dart';
 import 'package:retaillite/core/services/error_logging_service.dart';
+import 'package:retaillite/features/staff/services/auto_attendance_service.dart';
 
 /// Check if Crashlytics is supported (not web and not Windows)
 bool get _supportsCrashlytics => !kIsWeb && !Platform.isWindows;
@@ -277,6 +278,12 @@ class ErrorHandler extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
+
+    // Auto check-out attendance when app goes to background or closes
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      AutoAttendanceService.autoCheckOut();
+    }
 
     // Mark clean exit when app is detached (closing)
     if (state == AppLifecycleState.detached) {

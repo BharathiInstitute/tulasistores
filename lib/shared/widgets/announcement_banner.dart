@@ -7,9 +7,19 @@
 /// Dismissible per-session. Does NOT block the app.
 library;
 
+import 'dart:io';
+import 'dart:js_interop';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:retaillite/core/config/remote_config_state.dart';
+import 'package:retaillite/core/services/android_update_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
+import 'package:retaillite/core/services/windows_update_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+@JS('location.reload')
+external void _webReload();
 
 class AnnouncementBanner extends StatefulWidget {
   final Widget child;
@@ -22,6 +32,7 @@ class AnnouncementBanner extends StatefulWidget {
 class _AnnouncementBannerState extends State<AnnouncementBanner> {
   bool _announcementDismissed = false;
   bool _updateDismissed = false;
+  bool _updating = false;
 
   @override
   void initState() {
@@ -65,6 +76,52 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       'dismissed_update_at',
       DateTime.now().millisecondsSinceEpoch,
     );
+  }
+
+  Future<void> _handleUpdate() async {
+    if (_updating) return;
+    setState(() => _updating = true);
+
+    try {
+      if (kIsWeb) {
+        // Hard-reload picks up latest service worker / deployed code
+        _webReload();
+      } else if (Platform.isWindows) {
+        final result = await WindowsUpdateService.checkForUpdate();
+        if (result.versionInfo != null && mounted) {
+          final ok = await WindowsUpdateService.downloadAndInstall(
+            result.versionInfo!,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  ok
+                      ? 'Update downloaded! It will install when you close the app.'
+                      : 'Update failed. Please try again later.',
+                ),
+              ),
+            );
+          }
+        }
+      } else if (Platform.isAndroid) {
+        await AndroidUpdateService.checkForUpdate();
+      } else {
+        // iOS / macOS / Linux — open store page
+        final url = RemoteConfigState.forceUpdateUrl;
+        if (url.isNotEmpty) {
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
   }
 
   @override
@@ -115,6 +172,25 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                   'LATER',
                   style: TextStyle(color: Colors.white70),
                 ),
+              ),
+              TextButton(
+                onPressed: _updating ? null : _handleUpdate,
+                child: _updating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'UPDATE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ],
           ),

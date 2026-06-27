@@ -19,10 +19,6 @@ import 'package:retaillite/core/services/thermal_printer_service.dart';
 import 'package:retaillite/models/bill_model.dart';
 import 'package:web/web.dart' as web;
 
-/// Standard Bluetooth Serial Port Profile UUID for printers
-const _serialPortServiceUuid = '000018f0-0000-1000-8000-00805f9b34fb';
-const _serialPortCharUuid = '00002af1-0000-1000-8000-00805f9b34fb';
-
 /// Alternative UUIDs used by various thermal printer brands
 const _altServiceUuids = [
   '000018f0-0000-1000-8000-00805f9b34fb', // Standard SPP (MPT-II, most Chinese BT printers)

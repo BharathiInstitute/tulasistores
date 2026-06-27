@@ -2,9 +2,9 @@
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:retaillite/core/services/active_store.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/features/settings/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,15 +46,10 @@ class DataRetentionService {
 
   final RetentionPeriod _period;
   static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
   static SharedPreferences? _prefs;
 
   /// Get user's base path
-  static String get _basePath {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return '';
-    return 'users/$uid';
-  }
+  static String get _basePath => ActiveStore.basePath;
 
   /// Initialize the service
   static Future<void> initialize() async {

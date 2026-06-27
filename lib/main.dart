@@ -36,7 +36,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// App version ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â read from pubspec.yaml at runtime (single source of truth)
 /// Initialized in _initializeApp() before any version checks.
-String appVersion = '10.0.3'; // overwritten at startup
+String appVersion = '10.0.4'; // overwritten at startup
 int appBuildNumber = 0; // overwritten at startup
 
 /// Whether Firebase has finished initializing.
@@ -139,7 +139,9 @@ Future<void> _initializeApp() async {
         appVersion = packageInfo.version;
         appBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 0;
         RemoteConfigState.appVersion = appVersion;
-        debugPrint('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â± App version: v$appVersion+$appBuildNumber');
+        debugPrint(
+          'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â± App version: v$appVersion+$appBuildNumber',
+        );
       }),
     ]);
 
@@ -194,8 +196,11 @@ Future<void> _initializeApp() async {
         'latest_version',
       );
       RemoteConfigState.announcement = remoteConfig.getString('announcement');
+      RemoteConfigState.forceUpdateUrl = forceUpdateUrl;
     } catch (e, st) {
-      debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Remote Config initialization failed: $e');
+      debugPrint(
+        'ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Remote Config initialization failed: $e',
+      );
       unawaited(
         ErrorLoggingService.logError(
           error: e,
@@ -296,12 +301,12 @@ Future<void> _initializeApp() async {
   }
 }
 
-/// Safely initialize a service ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â logs error but doesn't crash the app
+/// Safely initialize a service — logs error but doesn't crash the app
 Future<void> _safeInit(String name, Future<void> Function() init) async {
   try {
     await init();
   } catch (e, st) {
-    debugPrint('ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â $name init failed (non-fatal): $e');
+    debugPrint('⚠️ $name init failed (non-fatal): $e');
     unawaited(
       ErrorLoggingService.logError(
         error: e,

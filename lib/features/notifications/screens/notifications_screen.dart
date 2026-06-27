@@ -111,11 +111,8 @@ class _NotificationTile extends StatelessWidget {
           if (!notification.read) {
             NotificationFirestoreService.markAsRead(userId, notification.id);
           }
-          // Navigate if data has a route
-          final route = notification.data?['route'] as String?;
-          if (route != null && route.isNotEmpty) {
-            context.push(route);
-          }
+          // Show notification detail in a popup dialog
+          _showNotificationDetail(context);
         },
         tileColor: notification.read
             ? null
@@ -203,5 +200,78 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat('MMM d').format(date);
+  }
+
+  void _showNotificationDetail(BuildContext context) {
+    final theme = Theme.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with icon and close
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: _getTypeColor(
+                        notification.type,
+                      ).withValues(alpha: 0.15),
+                      child: Icon(
+                        _getTypeIcon(notification.type),
+                        color: _getTypeColor(notification.type),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        notification.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                // Body
+                Text(notification.body, style: theme.textTheme.bodyLarge),
+                const SizedBox(height: 16),
+                // Timestamp
+                Text(
+                  DateFormat(
+                    'EEEE, d MMMM yyyy • h:mm a',
+                  ).format(notification.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Close button
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

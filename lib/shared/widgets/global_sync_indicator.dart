@@ -9,7 +9,8 @@ import 'package:retaillite/core/design/app_colors.dart';
 import 'package:retaillite/shared/widgets/sync_details_sheet.dart';
 
 class GlobalSyncIndicator extends ConsumerWidget {
-  const GlobalSyncIndicator({super.key});
+  final bool compact;
+  const GlobalSyncIndicator({super.key, this.compact = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,7 +27,9 @@ class GlobalSyncIndicator extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showSyncDetails(context, ref),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: compact
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 8),
         child: Stack(
           clipBehavior: Clip.none,
           children: [

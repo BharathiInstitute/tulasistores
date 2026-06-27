@@ -10,6 +10,7 @@ import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/core/services/user_metrics_service.dart';
 import 'package:retaillite/core/utils/id_generator.dart';
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/models/customer_model.dart';
 import 'package:retaillite/models/transaction_model.dart';
 
@@ -19,6 +20,7 @@ final customersProvider = StreamProvider.autoDispose<List<CustomerModel>>((
   ref,
 ) {
   final isDemoMode = ref.watch(isDemoModeProvider);
+  ref.watch(activeStoreIdProvider); // re-subscribe on store change
   debugPrint(
     '🧾 customersProvider: isDemoMode=$isDemoMode, DemoDataService.isLoaded=${DemoDataService.isLoaded}',
   );
@@ -37,6 +39,7 @@ final customersProvider = StreamProvider.autoDispose<List<CustomerModel>>((
 final customerProvider = StreamProvider.autoDispose
     .family<CustomerModel?, String>((ref, customerId) {
       final isDemoMode = ref.watch(isDemoModeProvider);
+      ref.watch(activeStoreIdProvider);
 
       if (isDemoMode) {
         return Stream.value(DemoDataService.getCustomer(customerId));
@@ -50,6 +53,7 @@ final customerProvider = StreamProvider.autoDispose
 final customerTransactionsProvider = StreamProvider.autoDispose
     .family<List<TransactionModel>, String>((ref, customerId) {
       final isDemoMode = ref.watch(isDemoModeProvider);
+      ref.watch(activeStoreIdProvider);
 
       if (isDemoMode) {
         return Stream.value(
@@ -180,6 +184,7 @@ final khataServiceProvider = Provider<KhataService>((ref) {
 final customersSyncStatusProvider =
     StreamProvider.autoDispose<Map<String, bool>>((ref) {
       final isDemoMode = ref.watch(isDemoModeProvider);
+      ref.watch(activeStoreIdProvider);
       if (isDemoMode) return Stream.value({});
       return OfflineStorageService.customersSyncStream();
     });

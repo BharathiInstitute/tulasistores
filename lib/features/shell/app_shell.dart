@@ -19,6 +19,8 @@ import 'package:retaillite/models/user_model.dart';
 import 'package:retaillite/router/app_router.dart';
 import 'package:retaillite/shared/widgets/shop_logo_widget.dart';
 import 'package:retaillite/shared/widgets/plan_badge.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
+import 'package:retaillite/features/staff/services/auto_attendance_service.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -32,7 +34,12 @@ class AppShell extends ConsumerWidget {
     if (location.startsWith('/products')) return 2;
     if (location.startsWith('/dashboard')) return 3;
     if (location.startsWith('/bills')) return 4;
-    if (location.startsWith('/settings')) return 5;
+    if (location.startsWith('/staff')) return 5;
+    if (location.startsWith('/my-attendance')) return 6;
+    if (location.startsWith('/vendors')) return 7;
+    if (location.startsWith('/my-stores')) return 8;
+    if (location.startsWith('/user-management')) return 9;
+    if (location.startsWith('/settings')) return 10;
     return 0;
   }
 
@@ -53,6 +60,21 @@ class AppShell extends ConsumerWidget {
       case 4:
         context.go(AppRoutes.bills);
         break;
+      case 5:
+        context.go(AppRoutes.staff);
+        break;
+      case 6:
+        context.go(AppRoutes.myAttendance);
+        break;
+      case 7:
+        context.go(AppRoutes.vendors);
+        break;
+      case 8:
+        context.go(AppRoutes.myStores);
+        break;
+      case 9:
+        context.go(AppRoutes.userManagement);
+        break;
     }
   }
 
@@ -60,6 +82,16 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = _getSelectedIndex(context);
     final deviceType = ResponsiveHelper.getDeviceType(context);
+
+    // Auto-initialize store on every shell rebuild (idempotent — no-op if already done)
+    ref.watch(storeInitializerProvider);
+
+    // Auto check-in for staff attendance (hybrid mode)
+    ref.listen(storeInitializerProvider, (_, next) {
+      if (next.hasValue) {
+        AutoAttendanceService.autoCheckIn();
+      }
+    });
 
     // Use WebShell for Desktop/Web view (desktop + desktopLarge)
     if (deviceType == DeviceType.desktop ||
