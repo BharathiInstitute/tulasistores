@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
 import 'package:retaillite/features/staff/models/attendance_model.dart';
@@ -51,7 +52,7 @@ class _StaffDetailScreenState extends ConsumerState<StaffDetailScreen>
             appBar: AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.pop(),
               ),
               title: const Text('Staff'),
             ),
@@ -63,7 +64,7 @@ class _StaffDetailScreenState extends ConsumerState<StaffDetailScreen>
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               tooltip: 'Back to Staff',
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
             ),
             title: Text(staff.name),
             actions: [
@@ -125,7 +126,7 @@ class _StaffDetailScreenState extends ConsumerState<StaffDetailScreen>
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
           ),
           title: const Text('Loading...'),
         ),
@@ -135,7 +136,7 @@ class _StaffDetailScreenState extends ConsumerState<StaffDetailScreen>
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
           ),
           title: const Text('Error'),
         ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -227,7 +229,7 @@ class StaffService {
   // ─── Self Attendance (Staff Clock In/Out with GPS) ───────────
 
   /// Staff clocks in themselves with geo location.
-  /// Can only clock in once per day; returns the attendance record.
+  /// Supports multiple check-ins per day when allowMultipleCheckIns is enabled.
   static Future<AttendanceModel?> selfCheckIn({bool requireGps = false}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || _basePath.isEmpty) return null;
@@ -236,10 +238,34 @@ class StaffService {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final docPath = '${_staffDocPath(uid)}/attendance/$today';
 
+    // Check attendance settings for multiple check-ins
+    final settingsDoc = await _firestore
+        .doc('$_basePath/settings/attendance')
+        .get();
+    final allowMultiple =
+        settingsDoc.data()?['allowMultipleCheckIns'] as bool? ?? true;
+
     // Check if already clocked in
     final existing = await _firestore.doc(docPath).get();
-    if (existing.exists) {
+    if (existing.exists && !allowMultiple) {
       return AttendanceModel.fromFirestore(existing);
+    }
+
+    // If multiple check-ins allowed and there's an open session, don't create new one
+    if (existing.exists && allowMultiple) {
+      final existingData = existing.data()!;
+      final sessions = (existingData['sessions'] as List<dynamic>?) ?? [];
+      // Check if last session is still open (no checkOut)
+      if (sessions.isNotEmpty) {
+        final lastSession = sessions.last as Map<String, dynamic>;
+        if (lastSession['checkOut'] == null) {
+          // Already clocked in, return existing
+          return AttendanceModel.fromFirestore(existing);
+        }
+      } else if (existingData['checkOut'] == null) {
+        // Legacy single check-in still open
+        return AttendanceModel.fromFirestore(existing);
+      }
     }
 
     // Get GPS location
@@ -249,9 +275,51 @@ class StaffService {
         'GPS location is required. Please enable location services and try again.',
       );
     }
+
+    // Check geo-fence if position is available
+    if (position != null) {
+      final geoFenceError = await _checkGeoFence(position);
+      if (geoFenceError != null) {
+        throw Exception(geoFenceError);
+      }
+    }
+
     final address = await _reverseGeocode(position);
 
     final now = DateTime.now();
+    final geoPoint = position != null
+        ? GeoPoint(position.latitude, position.longitude)
+        : null;
+
+    if (existing.exists && allowMultiple) {
+      // Add a new session to the existing attendance record
+      final existingData = existing.data()!;
+      final currentSessions =
+          (existingData['sessions'] as List<dynamic>?) ?? [];
+      final newSession = {
+        'checkIn': Timestamp.fromDate(now),
+        'checkOut': null,
+        'checkInLocation': geoPoint,
+        'checkOutLocation': null,
+        'checkInAddress': address,
+        'checkOutAddress': null,
+        'hoursWorked': null,
+      };
+
+      final updatedSessions = [...currentSessions, newSession];
+      await _firestore.doc(docPath).update({
+        'sessions': updatedSessions,
+        'checkOut': null, // Clear top-level checkOut to indicate "working"
+      });
+      debugPrint(
+        '✅ Self check-in (session) at ${DateFormat.jm().format(now)} — $address',
+      );
+
+      final updated = await _firestore.doc(docPath).get();
+      return AttendanceModel.fromFirestore(updated);
+    }
+
+    // First check-in of the day
     final data = <String, dynamic>{
       'staffId': uid,
       'date': Timestamp.fromDate(DateTime(now.year, now.month, now.day)),
@@ -262,12 +330,22 @@ class StaffService {
       'note': null,
       'source': 'self',
       'hoursWorked': null,
-      'checkInLocation': position != null
-          ? GeoPoint(position.latitude, position.longitude)
-          : null,
+      'checkInLocation': geoPoint,
       'checkInAddress': address,
       'checkOutLocation': null,
       'checkOutAddress': null,
+      if (allowMultiple)
+        'sessions': [
+          {
+            'checkIn': Timestamp.fromDate(now),
+            'checkOut': null,
+            'checkInLocation': geoPoint,
+            'checkOutLocation': null,
+            'checkInAddress': address,
+            'checkOutAddress': null,
+            'hoursWorked': null,
+          },
+        ],
     };
 
     await _firestore.doc(docPath).set(data);
@@ -280,14 +358,13 @@ class StaffService {
       status: AttendanceStatus.present,
       checkIn: now,
       source: 'self',
-      checkInLocation: position != null
-          ? GeoPoint(position.latitude, position.longitude)
-          : null,
+      checkInLocation: geoPoint,
       checkInAddress: address,
     );
   }
 
   /// Staff clocks out themselves with geo location.
+  /// Supports multiple sessions — closes the latest open session.
   static Future<AttendanceModel?> selfCheckOut() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || _basePath.isEmpty) return null;
@@ -302,16 +379,75 @@ class StaffService {
 
     final data = existing.data();
     if (data == null) return null;
-    // Already checked out
+
+    // Get GPS location
+    final position = await _getPosition();
+
+    // Check geo-fence if position is available
+    if (position != null) {
+      final geoFenceError = await _checkGeoFence(position);
+      if (geoFenceError != null) {
+        throw Exception(geoFenceError);
+      }
+    }
+
+    final address = await _reverseGeocode(position);
+    final now = DateTime.now();
+    final geoPoint = position != null
+        ? GeoPoint(position.latitude, position.longitude)
+        : null;
+
+    // Check if using multi-session mode
+    final sessions = data['sessions'] as List<dynamic>?;
+    if (sessions != null && sessions.isNotEmpty) {
+      // Find the last open session and close it
+      final lastSession = sessions.last as Map<String, dynamic>;
+      if (lastSession['checkOut'] != null) {
+        // All sessions already closed
+        return AttendanceModel.fromFirestore(existing);
+      }
+
+      final sessionCheckIn = (lastSession['checkIn'] as Timestamp).toDate();
+      final sessionHours = now.difference(sessionCheckIn).inMinutes / 60.0;
+
+      // Replace the last session with the closed version
+      final updatedSessions = List<dynamic>.from(sessions);
+      updatedSessions[updatedSessions.length - 1] = {
+        ...lastSession,
+        'checkOut': Timestamp.fromDate(now),
+        'checkOutLocation': geoPoint,
+        'checkOutAddress': address,
+        'hoursWorked': sessionHours,
+      };
+
+      // Calculate total hours across all sessions
+      double totalHours = 0;
+      for (final s in updatedSessions) {
+        final h = (s as Map<String, dynamic>)['hoursWorked'] as num?;
+        if (h != null) totalHours += h.toDouble();
+      }
+
+      await _firestore.doc(docPath).update({
+        'sessions': updatedSessions,
+        'checkOut': Timestamp.fromDate(now),
+        'hoursWorked': totalHours,
+        'checkOutLocation': geoPoint,
+        'checkOutAddress': address,
+      });
+
+      debugPrint(
+        '✅ Self check-out (session) at ${DateFormat.jm().format(now)} — $address',
+      );
+
+      final updated = await _firestore.doc(docPath).get();
+      return AttendanceModel.fromFirestore(updated);
+    }
+
+    // Legacy single check-in/out mode
     if (data['checkOut'] != null) {
       return AttendanceModel.fromFirestore(existing);
     }
 
-    // Get GPS location
-    final position = await _getPosition();
-    final address = await _reverseGeocode(position);
-
-    final now = DateTime.now();
     final checkIn = (data['checkIn'] as Timestamp?)?.toDate();
     final hoursWorked = checkIn != null
         ? now.difference(checkIn).inMinutes / 60.0
@@ -320,9 +456,7 @@ class StaffService {
     await _firestore.doc(docPath).update({
       'checkOut': Timestamp.fromDate(now),
       'hoursWorked': hoursWorked,
-      'checkOutLocation': position != null
-          ? GeoPoint(position.latitude, position.longitude)
-          : null,
+      'checkOutLocation': geoPoint,
       'checkOutAddress': address,
     });
 
@@ -371,7 +505,11 @@ class StaffService {
   static const Map<String, dynamic> _defaultAttendanceSettings = {
     'allowSelfCheckIn': true,
     'requireGps': true,
-    'allowMultipleCheckIns': false,
+    'allowMultipleCheckIns': true,
+    'requireGeoFence': false,
+    'storeLatitude': null,
+    'storeLongitude': null,
+    'geoFenceRadius': 100,
   };
 
   /// Stream attendance settings from Firestore.
@@ -396,6 +534,78 @@ class StaffService {
       key: value,
     }, SetOptions(merge: true));
   }
+
+  /// Save a dynamic attendance setting (for non-bool values like radius, lat/lng).
+  static Future<void> saveAttendanceSettingValue(
+    String key,
+    dynamic value,
+  ) async {
+    if (_basePath.isEmpty) return;
+    await _firestore.doc('$_basePath/settings/attendance').set({
+      key: value,
+    }, SetOptions(merge: true));
+  }
+
+  /// Save store location for geo-fence.
+  static Future<void> saveStoreLocation(double lat, double lng) async {
+    if (_basePath.isEmpty) return;
+    await _firestore.doc('$_basePath/settings/attendance').set({
+      'storeLatitude': lat,
+      'storeLongitude': lng,
+    }, SetOptions(merge: true));
+  }
+
+  /// Check if position is within geo-fence radius of the store.
+  /// Returns null if OK, or an error message string if blocked.
+  static Future<String?> _checkGeoFence(Position position) async {
+    final settingsDoc = await _firestore
+        .doc('$_basePath/settings/attendance')
+        .get();
+    final data = settingsDoc.data() ?? {};
+    final requireGeoFence = data['requireGeoFence'] as bool? ?? false;
+    if (!requireGeoFence) return null; // Geo-fence not enabled
+
+    final storeLat = (data['storeLatitude'] as num?)?.toDouble();
+    final storeLng = (data['storeLongitude'] as num?)?.toDouble();
+    if (storeLat == null || storeLng == null) {
+      return null; // Store location not set — allow check-in
+    }
+
+    final radius = (data['geoFenceRadius'] as num?)?.toInt() ?? 100;
+    final distance = _haversineDistance(
+      position.latitude,
+      position.longitude,
+      storeLat,
+      storeLng,
+    );
+
+    if (distance > radius) {
+      return 'You are ${distance.round()}m away from the store. Must be within ${radius}m to clock in/out.';
+    }
+    return null; // Within range
+  }
+
+  /// Calculate distance in meters between two points using Haversine formula.
+  static double _haversineDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371000.0; // Earth radius in meters
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
+  }
+
+  static double _toRadians(double degrees) => degrees * math.pi / 180;
 
   /// Get GPS position (with permission handling)
   static Future<Position?> _getPosition() async {

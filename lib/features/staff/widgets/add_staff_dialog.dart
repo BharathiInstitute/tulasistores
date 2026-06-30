@@ -143,8 +143,9 @@ class _AddStaffDialogState extends ConsumerState<AddStaffDialog> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Email is required';
+                      }
                       if (!v.contains('@') || !v.contains('.')) {
                         return 'Enter a valid email';
                       }
@@ -213,10 +214,12 @@ class _AddStaffDialogState extends ConsumerState<AddStaffDialog> {
                     ),
                     keyboardType: TextInputType.number,
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Salary is required';
-                      if (double.tryParse(v) == null)
+                      }
+                      if (double.tryParse(v) == null) {
                         return 'Enter a valid number';
+                      }
                       return null;
                     },
                   ),

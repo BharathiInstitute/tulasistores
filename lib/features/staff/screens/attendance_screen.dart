@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -92,7 +94,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
             status: status,
             checkIn: checkIn,
             checkOut: checkOut,
-            source: 'manual',
           );
         }
       }
@@ -187,7 +188,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                     );
                     if (picked != null) {
                       setState(() => _selectedDate = picked);
-                      _loadAttendance();
+                      unawaited(_loadAttendance());
                     }
                   },
                 ),

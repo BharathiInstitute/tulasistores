@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:retaillite/core/constants/app_constants.dart';
@@ -9,6 +13,7 @@ import 'package:retaillite/features/staff/providers/staff_provider.dart';
 import 'package:retaillite/features/staff/services/staff_service.dart';
 import 'package:retaillite/features/staff/widgets/add_staff_dialog.dart';
 import 'package:retaillite/core/utils/permission_guard.dart';
+import 'package:retaillite/features/store/models/permissions_model.dart';
 import 'package:retaillite/features/store/providers/store_provider.dart';
 
 class StaffListScreen extends ConsumerStatefulWidget {
@@ -37,6 +42,27 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Wait for membership to resolve before checking role
+    final membershipAsync = ref.watch(myMembershipProvider);
+    // While loading, show spinner — don't redirect yet
+    if (membershipAsync.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final role = ref.watch(myRoleProvider);
+    final isAdmin = role == StoreRole.owner || role == StoreRole.manager;
+
+    // Non-admin staff: redirect to their own profile
+    if (!isAdmin) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.go('/staff/$uid');
+        });
+      }
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       body: Column(
@@ -72,10 +98,10 @@ class _StaffListScreenState extends ConsumerState<StaffListScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                const _TeamTab(),
-                const _AttendanceAdminTab(),
-                const _AttendanceSettingsTab(),
+              children: const [
+                _TeamTab(),
+                _AttendanceAdminTab(),
+                _AttendanceSettingsTab(),
               ],
             ),
           ),
@@ -140,6 +166,7 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
           const SizedBox(height: 16),
           Expanded(
             child: staffAsync.when(
+              skipLoadingOnReload: true,
               data: (staffList) {
                 final filtered = _showInactive
                     ? staffList
@@ -185,7 +212,7 @@ class _TeamTabState extends ConsumerState<_TeamTab> {
                         final staff = filtered[index];
                         return _StaffCard(
                           staff: staff,
-                          onTap: () => context.go('/staff/${staff.id}'),
+                          onTap: () => context.push('/staff/${staff.id}'),
                         );
                       },
                     );
@@ -232,11 +259,12 @@ class _AttendanceAdminTabState extends ConsumerState<_AttendanceAdminTab> {
         from: _fromDate,
         to: _toDate,
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _records = records;
           _loading = false;
         });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
@@ -402,7 +430,6 @@ class _AttendanceAdminTabState extends ConsumerState<_AttendanceAdminTab> {
                   ),
                 ),
                 Expanded(
-                  flex: 1,
                   child: Text(
                     'Hours',
                     style: theme.textTheme.labelMedium?.copyWith(
@@ -539,7 +566,6 @@ class _AttendanceAdminTabState extends ConsumerState<_AttendanceAdminTab> {
             ),
           ),
           Expanded(
-            flex: 1,
             child: Text(
               att.hoursWorked != null
                   ? '${att.hoursWorked!.toStringAsFixed(1)}h'
@@ -822,9 +848,8 @@ class _AttendanceAdminTabState extends ConsumerState<_AttendanceAdminTab> {
                     status: att.status,
                     checkIn: checkIn,
                     checkOut: checkOut,
-                    source: 'manual',
                   );
-                  _loadRecords(); // refresh
+                  unawaited(_loadRecords()); // refresh
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -923,6 +948,12 @@ class _AttendanceSettingsTab extends ConsumerWidget {
     final settings = settingsAsync.valueOrNull ?? {};
     final allowSelf = settings['allowSelfCheckIn'] as bool? ?? true;
     final requireGps = settings['requireGps'] as bool? ?? true;
+    final allowMultiple = settings['allowMultipleCheckIns'] as bool? ?? false;
+    final requireGeoFence = settings['requireGeoFence'] as bool? ?? false;
+    final geoFenceRadius = (settings['geoFenceRadius'] as num?)?.toInt() ?? 100;
+    final storeLat = (settings['storeLatitude'] as num?)?.toDouble();
+    final storeLng = (settings['storeLongitude'] as num?)?.toDouble();
+    final hasStoreLocation = storeLat != null && storeLng != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -939,25 +970,25 @@ class _AttendanceSettingsTab extends ConsumerWidget {
                 children: [
                   Text('Work Hours', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 12),
-                  ListTile(
-                    leading: const Icon(Icons.access_time),
-                    title: const Text('Standard Shift'),
-                    subtitle: const Text('9:00 AM — 6:00 PM'),
-                    trailing: const Icon(Icons.chevron_right),
+                  const ListTile(
+                    leading: Icon(Icons.access_time),
+                    title: Text('Standard Shift'),
+                    subtitle: Text('9:00 AM — 6:00 PM'),
+                    trailing: Icon(Icons.chevron_right),
                   ),
                   const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.timer),
-                    title: const Text('Late Threshold'),
-                    subtitle: const Text('15 minutes after shift start'),
-                    trailing: const Icon(Icons.chevron_right),
+                  const ListTile(
+                    leading: Icon(Icons.timer),
+                    title: Text('Late Threshold'),
+                    subtitle: Text('15 minutes after shift start'),
+                    trailing: Icon(Icons.chevron_right),
                   ),
                   const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.calendar_month),
-                    title: const Text('Working Days'),
-                    subtitle: const Text('Monday — Saturday'),
-                    trailing: const Icon(Icons.chevron_right),
+                  const ListTile(
+                    leading: Icon(Icons.calendar_month),
+                    title: Text('Working Days'),
+                    subtitle: Text('Monday — Saturday'),
+                    trailing: Icon(Icons.chevron_right),
                   ),
                 ],
               ),
@@ -1003,9 +1034,118 @@ class _AttendanceSettingsTab extends ConsumerWidget {
                     subtitle: const Text(
                       'Staff can clock in/out more than once per day',
                     ),
-                    value: false,
-                    onChanged: null,
+                    value: allowMultiple,
+                    onChanged: allowSelf
+                        ? (val) => StaffService.saveAttendanceSetting(
+                            'allowMultipleCheckIns',
+                            val,
+                          )
+                        : null,
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Geo-Fence', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Restrict check-in/out to store vicinity',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    title: const Text('Require Geo-Fence'),
+                    subtitle: const Text(
+                      'Staff must be near store to clock in/out',
+                    ),
+                    value: requireGeoFence,
+                    onChanged: allowSelf
+                        ? (val) => StaffService.saveAttendanceSetting(
+                            'requireGeoFence',
+                            val,
+                          )
+                        : null,
+                  ),
+                  if (requireGeoFence) ...[
+                    const Divider(),
+                    ListTile(
+                      leading: Icon(
+                        Icons.location_on,
+                        color: hasStoreLocation ? Colors.green : Colors.orange,
+                      ),
+                      title: const Text('Store Location'),
+                      subtitle: Text(
+                        hasStoreLocation
+                            ? '${storeLat.toStringAsFixed(5)}, ${storeLng.toStringAsFixed(5)}'
+                            : 'Not set — tap to use current location',
+                      ),
+                      trailing: const Icon(Icons.my_location),
+                      onTap: () async {
+                        try {
+                          final position = await Geolocator.getCurrentPosition(
+                            locationSettings: const LocationSettings(
+                              accuracy: LocationAccuracy.high,
+                              timeLimit: Duration(seconds: 10),
+                            ),
+                          );
+                          await StaffService.saveStoreLocation(
+                            position.latitude,
+                            position.longitude,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Store location saved successfully',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to get location: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.radar),
+                      title: const Text('Allowed Radius'),
+                      subtitle: Text('$geoFenceRadius meters'),
+                      trailing: SizedBox(
+                        width: 200,
+                        child: Slider(
+                          value: geoFenceRadius.toDouble(),
+                          min: 50,
+                          max: 500,
+                          divisions: 9,
+                          label: '${geoFenceRadius}m',
+                          onChanged: (val) {
+                            StaffService.saveAttendanceSettingValue(
+                              'geoFenceRadius',
+                              val.round(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

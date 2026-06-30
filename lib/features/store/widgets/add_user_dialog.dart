@@ -195,7 +195,6 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                       prefixIcon: Icon(Icons.badge_outlined),
                       hintText: 'e.g. manager, cashier, viewer',
                     ),
-                    textCapitalization: TextCapitalization.none,
                     validator: (v) =>
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),

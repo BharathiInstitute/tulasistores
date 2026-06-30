@@ -29,11 +29,12 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
     setState(() => _loading = true);
     try {
       final record = await StaffService.getMyTodayAttendance();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _today = record;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -177,8 +178,54 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
   }
 
   Widget _buildClockCard(ThemeData theme) {
+    final settings = ref.watch(attendanceSettingsProvider).valueOrNull ?? {};
+    final allowMultiple = settings['allowMultipleCheckIns'] as bool? ?? true;
+
     final hasCheckedIn = _today?.checkIn != null;
     final hasCheckedOut = _today?.checkOut != null;
+    // For multi-mode: check if there's an open session
+    final hasOpenSession = _today?.hasOpenSession ?? false;
+    final sessions = _today?.sessions ?? [];
+
+    // Determine current state for multi-mode
+    final bool canClockIn;
+    final bool canClockOut;
+    final String statusText;
+    final IconData statusIcon;
+    final Color statusColor;
+
+    if (allowMultiple && hasCheckedIn) {
+      // Multi-mode: allow re-clock-in after clock-out
+      canClockOut = hasOpenSession;
+      canClockIn = !hasOpenSession;
+      if (hasOpenSession) {
+        statusText = 'Checked In';
+        statusIcon = Icons.access_time;
+        statusColor = Colors.green;
+      } else {
+        statusText = sessions.isNotEmpty
+            ? '${sessions.length} session${sessions.length > 1 ? 's' : ''} today'
+            : 'Ready to Clock In';
+        statusIcon = Icons.replay;
+        statusColor = Colors.blue;
+      }
+    } else {
+      canClockIn = !hasCheckedIn;
+      canClockOut = hasCheckedIn && !hasCheckedOut;
+      if (hasCheckedOut) {
+        statusText = 'Day Complete';
+        statusIcon = Icons.check_circle;
+        statusColor = Colors.grey;
+      } else if (hasCheckedIn) {
+        statusText = 'Checked In';
+        statusIcon = Icons.access_time;
+        statusColor = Colors.green;
+      } else {
+        statusText = 'Not Checked In';
+        statusIcon = Icons.login;
+        statusColor = Colors.orange;
+      }
+    }
 
     return Center(
       child: ConstrainedBox(
@@ -195,42 +242,93 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
                 // Status Icon
                 CircleAvatar(
                   radius: 40,
-                  backgroundColor: hasCheckedOut
-                      ? Colors.grey.withValues(alpha: 0.2)
-                      : hasCheckedIn
-                      ? Colors.green.withValues(alpha: 0.2)
-                      : Colors.orange.withValues(alpha: 0.2),
-                  child: Icon(
-                    hasCheckedOut
-                        ? Icons.check_circle
-                        : hasCheckedIn
-                        ? Icons.access_time
-                        : Icons.login,
-                    size: 40,
-                    color: hasCheckedOut
-                        ? Colors.grey
-                        : hasCheckedIn
-                        ? Colors.green
-                        : Colors.orange,
-                  ),
+                  backgroundColor: statusColor.withValues(alpha: 0.2),
+                  child: Icon(statusIcon, size: 40, color: statusColor),
                 ),
                 const SizedBox(height: 16),
 
                 // Status Text
                 Text(
-                  hasCheckedOut
-                      ? 'Day Complete'
-                      : hasCheckedIn
-                      ? 'Checked In'
-                      : 'Not Checked In',
+                  statusText,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
 
-                // Time details
-                if (hasCheckedIn) ...[
+                // Sessions list for multi-mode
+                if (allowMultiple && sessions.isNotEmpty) ...[
+                  ...sessions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final s = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '#${i + 1}  ',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.login,
+                            size: 14,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            DateFormat.jm().format(s.checkIn),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.green,
+                            ),
+                          ),
+                          if (s.checkOut != null) ...[
+                            const SizedBox(width: 10),
+                            const Icon(
+                              Icons.logout,
+                              size: 14,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              DateFormat.jm().format(s.checkOut!),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.red,
+                              ),
+                            ),
+                            if (s.hoursWorked != null)
+                              Text(
+                                '  (${s.hoursWorked!.toStringAsFixed(1)}h)',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                          ] else
+                            Text(
+                              '  — working',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.green.shade300,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Total: ${_today!.totalSessionHours.toStringAsFixed(1)} hours',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ] else if (hasCheckedIn && !allowMultiple) ...[
+                  // Legacy single session display
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -258,46 +356,48 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
-                  if (_today!.checkInAddress != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Colors.teal,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            _today!.checkInAddress!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
+                ],
+
+                if (_today?.checkInAddress != null &&
+                    !(allowMultiple && sessions.isNotEmpty)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: Colors.teal,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          _today!.checkInAddress!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
                             ),
-                            textAlign: TextAlign.center,
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ],
                 const SizedBox(height: 24),
 
                 // Action Button
-                if (!hasCheckedOut)
+                if (canClockIn || canClockOut)
                   SizedBox(
                     width: 200,
                     height: 56,
                     child: FilledButton.icon(
                       onPressed: _actionLoading
                           ? null
-                          : (hasCheckedIn ? _clockOut : _clockIn),
+                          : (canClockOut ? _clockOut : _clockIn),
                       style: FilledButton.styleFrom(
-                        backgroundColor: hasCheckedIn
+                        backgroundColor: canClockOut
                             ? Colors.red
                             : Colors.green,
                         shape: RoundedRectangleBorder(
@@ -313,11 +413,11 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : Icon(hasCheckedIn ? Icons.logout : Icons.login),
+                          : Icon(canClockOut ? Icons.logout : Icons.login),
                       label: Text(
                         _actionLoading
                             ? 'Please wait...'
-                            : hasCheckedIn
+                            : canClockOut
                             ? 'CLOCK OUT'
                             : 'CLOCK IN',
                         style: const TextStyle(
@@ -327,7 +427,7 @@ class _MyAttendanceScreenState extends ConsumerState<MyAttendanceScreen> {
                       ),
                     ),
                   ),
-                if (hasCheckedOut)
+                if (hasCheckedOut && !allowMultiple)
                   Text(
                     'See you tomorrow! 👋',
                     style: theme.textTheme.bodyLarge?.copyWith(

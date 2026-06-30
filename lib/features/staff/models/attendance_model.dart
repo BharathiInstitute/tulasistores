@@ -34,6 +34,7 @@ class AttendanceModel {
   final GeoPoint? checkOutLocation;
   final String? checkInAddress;
   final String? checkOutAddress;
+  final List<CheckInSession> sessions; // Multiple check-in/out sessions
 
   const AttendanceModel({
     required this.id,
@@ -50,10 +51,16 @@ class AttendanceModel {
     this.checkOutLocation,
     this.checkInAddress,
     this.checkOutAddress,
+    this.sessions = const [],
   });
 
   factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final sessionsList =
+        (data['sessions'] as List<dynamic>?)
+            ?.map((s) => CheckInSession.fromMap(s as Map<String, dynamic>))
+            .toList() ??
+        [];
     return AttendanceModel(
       id: doc.id,
       staffId: (data['staffId'] as String?) ?? '',
@@ -71,6 +78,7 @@ class AttendanceModel {
       checkOutLocation: data['checkOutLocation'] as GeoPoint?,
       checkInAddress: data['checkInAddress'] as String?,
       checkOutAddress: data['checkOutAddress'] as String?,
+      sessions: sessionsList,
     );
   }
 
@@ -88,6 +96,8 @@ class AttendanceModel {
     'checkOutLocation': checkOutLocation,
     'checkInAddress': checkInAddress,
     'checkOutAddress': checkOutAddress,
+    if (sessions.isNotEmpty)
+      'sessions': sessions.map((s) => s.toMap()).toList(),
   };
 
   bool get isAuto => source == 'auto';
@@ -101,6 +111,7 @@ class AttendanceModel {
     String? note,
     String? source,
     double? hoursWorked,
+    List<CheckInSession>? sessions,
   }) {
     return AttendanceModel(
       id: id,
@@ -117,8 +128,62 @@ class AttendanceModel {
       checkOutLocation: checkOutLocation,
       checkInAddress: checkInAddress,
       checkOutAddress: checkOutAddress,
+      sessions: sessions ?? this.sessions,
     );
   }
+
+  /// Total hours worked across all sessions
+  double get totalSessionHours {
+    if (sessions.isEmpty) return hoursWorked ?? 0;
+    return sessions.fold(0.0, (total, s) => total + (s.hoursWorked ?? 0));
+  }
+
+  /// Whether the latest session is still open (checked in but not out)
+  bool get hasOpenSession =>
+      sessions.isNotEmpty && sessions.last.checkOut == null;
+}
+
+/// A single check-in/check-out session within a day.
+class CheckInSession {
+  final DateTime checkIn;
+  final DateTime? checkOut;
+  final GeoPoint? checkInLocation;
+  final GeoPoint? checkOutLocation;
+  final String? checkInAddress;
+  final String? checkOutAddress;
+  final double? hoursWorked;
+
+  const CheckInSession({
+    required this.checkIn,
+    this.checkOut,
+    this.checkInLocation,
+    this.checkOutLocation,
+    this.checkInAddress,
+    this.checkOutAddress,
+    this.hoursWorked,
+  });
+
+  factory CheckInSession.fromMap(Map<String, dynamic> data) {
+    return CheckInSession(
+      checkIn: (data['checkIn'] as Timestamp).toDate(),
+      checkOut: (data['checkOut'] as Timestamp?)?.toDate(),
+      checkInLocation: data['checkInLocation'] as GeoPoint?,
+      checkOutLocation: data['checkOutLocation'] as GeoPoint?,
+      checkInAddress: data['checkInAddress'] as String?,
+      checkOutAddress: data['checkOutAddress'] as String?,
+      hoursWorked: (data['hoursWorked'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'checkIn': Timestamp.fromDate(checkIn),
+    'checkOut': checkOut != null ? Timestamp.fromDate(checkOut!) : null,
+    'checkInLocation': checkInLocation,
+    'checkOutLocation': checkOutLocation,
+    'checkInAddress': checkInAddress,
+    'checkOutAddress': checkOutAddress,
+    'hoursWorked': hoursWorked,
+  };
 }
 
 /// A combined record with staff name for range queries.
