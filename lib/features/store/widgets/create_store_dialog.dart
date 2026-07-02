@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:retaillite/core/config/plan_config.dart';
+import 'package:retaillite/shared/widgets/feature_gate.dart';
+import 'package:retaillite/features/store/providers/store_provider.dart';
 import 'package:retaillite/features/store/services/store_service.dart';
 
 class CreateStoreDialog extends ConsumerStatefulWidget {
@@ -26,6 +29,12 @@ class _CreateStoreDialogState extends ConsumerState<CreateStoreDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Check multi-store feature and store limit
+    final stores = ref.read(myStoresProvider).valueOrNull ?? [];
+    if (!FeatureAccess.check(context, ref, PlanFeature.multiStore)) return;
+    if (!FeatureAccess.checkStoreLimit(context, ref, stores.length)) return;
+
     setState(() => _loading = true);
 
     try {

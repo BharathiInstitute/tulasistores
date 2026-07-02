@@ -10,6 +10,8 @@ import 'package:retaillite/l10n/app_localizations.dart';
 import 'package:retaillite/models/product_model.dart';
 import 'package:retaillite/shared/widgets/loading_states.dart';
 import 'package:retaillite/shared/widgets/sync_badge.dart';
+import 'package:retaillite/core/config/plan_config.dart';
+import 'package:retaillite/shared/widgets/feature_gate.dart';
 import 'package:retaillite/shared/widgets/upgrade_prompt_modal.dart';
 
 class ProductsWebScreen extends ConsumerStatefulWidget {
@@ -769,6 +771,7 @@ class _ProductsWebScreenState extends ConsumerState<ProductsWebScreen> {
   }
 
   Future<void> _handleExportCsv() async {
+    if (!FeatureAccess.check(context, ref, PlanFeature.exportData)) return;
     final productsAsync = ref.read(productsProvider);
     final products = productsAsync.valueOrNull;
     if (products == null || products.isEmpty) {

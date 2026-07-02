@@ -13,6 +13,8 @@ import 'package:retaillite/features/products/providers/products_provider.dart';
 import 'package:retaillite/l10n/app_localizations.dart';
 import 'package:retaillite/models/bill_model.dart';
 import 'package:retaillite/models/sales_summary_model.dart';
+import 'package:retaillite/core/config/plan_config.dart';
+import 'package:retaillite/shared/widgets/feature_gate.dart';
 import 'package:retaillite/shared/widgets/loading_states.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -91,6 +93,7 @@ class DashboardWebScreen extends ConsumerWidget {
   }
 
   Future<void> _exportPdf(BuildContext context, WidgetRef ref) async {
+    if (!FeatureAccess.check(context, ref, PlanFeature.exportData)) return;
     final l10n = context.l10n;
     final summary = ref.read(salesSummaryProvider);
 

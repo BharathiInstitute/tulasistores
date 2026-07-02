@@ -8,7 +8,6 @@
 library;
 
 import 'dart:io';
-import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,10 +15,9 @@ import 'package:retaillite/core/config/remote_config_state.dart';
 import 'package:retaillite/core/services/android_update_service.dart';
 import 'package:retaillite/core/services/offline_storage_service.dart';
 import 'package:retaillite/core/services/windows_update_service.dart';
+import 'package:retaillite/shared/widgets/web_reload_stub.dart'
+    if (dart.library.js_interop) 'package:retaillite/shared/widgets/web_reload_web.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-@JS('location.reload')
-external void _webReload();
 
 class AnnouncementBanner extends StatefulWidget {
   final Widget child;
@@ -85,7 +83,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
     try {
       if (kIsWeb) {
         // Hard-reload picks up latest service worker / deployed code
-        _webReload();
+        webReload();
       } else if (Platform.isWindows) {
         final result = await WindowsUpdateService.checkForUpdate();
         if (result.versionInfo != null && mounted) {

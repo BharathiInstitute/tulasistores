@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:retaillite/core/services/error_logging_service.dart';
+import 'package:retaillite/core/config/plan_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Subscription plans
@@ -63,26 +64,15 @@ class UserSubscription {
   }
 
   /// Get plan limits
-  int get billsLimit {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 50;
-      case SubscriptionPlan.pro:
-        return 500;
-      case SubscriptionPlan.business:
-        return 999999; // Unlimited
-    }
-  }
+  int get billsLimit => PlanConfig.limitsFor(plan).maxBillsPerMonth;
 
-  int get productsLimit {
-    switch (plan) {
-      case SubscriptionPlan.free:
-        return 100;
-      case SubscriptionPlan.pro:
-      case SubscriptionPlan.business:
-        return 999999; // Unlimited
-    }
-  }
+  int get productsLimit => PlanConfig.limitsFor(plan).maxProducts;
+
+  int get customersLimit => PlanConfig.limitsFor(plan).maxCustomers;
+
+  int get staffLimit => PlanConfig.limitsFor(plan).maxStaff;
+
+  int get storesLimit => PlanConfig.limitsFor(plan).maxStores;
 
   bool get isActive =>
       status == SubscriptionStatus.active || status == SubscriptionStatus.trial;

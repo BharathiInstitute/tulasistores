@@ -29,7 +29,7 @@ import 'package:retaillite/router/app_router.dart';
 import 'package:retaillite/shared/widgets/shop_logo_widget.dart';
 
 /// Settings tab enum
-enum SettingsTab { general, account, hardware, billing }
+enum SettingsTab { general, account, hardware, billing, subscription }
 
 class SettingsWebScreen extends ConsumerStatefulWidget {
   final String initialTab;
@@ -348,6 +348,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         return SettingsTab.hardware;
       case 'billing':
         return SettingsTab.billing;
+      case 'subscription':
+        return SettingsTab.subscription;
       default:
         return SettingsTab.general;
     }
@@ -792,6 +794,13 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
       subtitle:
           'Customize your invoice appearance, tax rules, and digital payment integrations.',
     ),
+    SettingsTab.subscription: (
+      icon: Icons.workspace_premium,
+      label: 'Subscription',
+      title: 'Manage Subscription',
+      subtitle:
+          'View your current plan, usage limits, and manage your subscription.',
+    ),
   };
 
   @override
@@ -1182,6 +1191,8 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         return _buildHardwareTab();
       case SettingsTab.billing:
         return _buildBillingTab();
+      case SettingsTab.subscription:
+        return _buildSubscriptionTab();
     }
   }
 
@@ -1717,82 +1728,6 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         ),
       ),
     ];
-
-    // Subscription
-    leftChildren.add(const SizedBox(height: 20));
-    leftChildren.add(
-      _SectionCard(
-        icon: Icons.workspace_premium,
-        iconColor: AppColors.primary,
-        title: 'Subscription',
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            child: Icon(Icons.workspace_premium, color: AppColors.primary),
-          ),
-          title: Text(
-            '${_subscription.plan.name[0].toUpperCase()}${_subscription.plan.name.substring(1)} Plan',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(
-            _limits.billsThisMonth < _limits.billsLimit
-                ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "\u221e" : _limits.billsLimit} bills used this month'
-                : '\u26a0\ufe0f Bill limit reached — upgrade to continue',
-            style: TextStyle(
-              color: _limits.billsThisMonth >= _limits.billsLimit
-                  ? AppColors.error
-                  : null,
-            ),
-          ),
-          trailing: _subscription.plan == SubscriptionPlan.free
-              ? FilledButton(
-                  onPressed: () => context.push(AppRoutes.subscription),
-                  child: const Text('Upgrade'),
-                )
-              : TextButton(
-                  onPressed: () => context.push(AppRoutes.subscription),
-                  child: const Text('Manage'),
-                ),
-        ),
-      ),
-    );
-
-    // Promo Code
-    leftChildren.add(const SizedBox(height: 20));
-    leftChildren.add(
-      _SectionCard(
-        icon: Icons.redeem,
-        iconColor: AppColors.accent,
-        title: 'Promo Code',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Have a promo code? Redeem it to get free days added to your subscription!',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _showRedeemDialog,
-                icon: const Icon(Icons.redeem, size: 18),
-                label: const Text('Redeem Promo Code'),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
 
     // Privacy & Data Export
     leftChildren.add(const SizedBox(height: 20));
@@ -2973,6 +2908,307 @@ class _SettingsWebScreenState extends ConsumerState<SettingsWebScreen> {
         ),
       ],
     );
+  }
+
+  // ============ SUBSCRIPTION TAB ============
+  Widget _buildSubscriptionTab() {
+    final planName =
+        '${_subscription.plan.name[0].toUpperCase()}${_subscription.plan.name.substring(1)}';
+    final isFreePlan = _subscription.plan == SubscriptionPlan.free;
+    final isCancelled = _subscription.status == SubscriptionStatus.cancelled;
+
+    String formatLimit(int count, int limit) {
+      return '$count / ${limit >= 999999 ? "\u221e" : limit}';
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── Current Plan Card ───
+          _SectionCard(
+            icon: Icons.workspace_premium,
+            iconColor: AppColors.primary,
+            title: 'Manage Subscription',
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  child: Icon(
+                    Icons.workspace_premium,
+                    color: AppColors.primary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '$planName Plan',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isCancelled
+                                  ? AppColors.error.withValues(alpha: 0.12)
+                                  : AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              isCancelled ? 'Cancelled' : 'Active',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isCancelled
+                                    ? AppColors.error
+                                    : AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _subscription.expiresAt != null
+                            ? 'Renews ${_subscription.expiresAt!.day}/${_subscription.expiresAt!.month}/${_subscription.expiresAt!.year}'
+                            : isFreePlan
+                                ? 'Free forever'
+                                : 'No expiry set',
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── Usage Overview ───
+          _SectionCard(
+            icon: Icons.bar_chart,
+            iconColor: AppColors.primary,
+            title: 'Usage Overview',
+            child: Column(
+              children: [
+                _buildUsageRow(
+                  'Bills this month',
+                  _limits.billsThisMonth,
+                  _limits.billsLimit,
+                  formatLimit(_limits.billsThisMonth, _limits.billsLimit),
+                ),
+                const SizedBox(height: 16),
+                _buildUsageRow(
+                  'Products',
+                  _limits.productsCount,
+                  _limits.productsLimit,
+                  formatLimit(_limits.productsCount, _limits.productsLimit),
+                ),
+                const SizedBox(height: 16),
+                _buildUsageRow(
+                  'Customers',
+                  _limits.customersCount,
+                  _limits.customersLimit,
+                  formatLimit(_limits.customersCount, _limits.customersLimit),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── Change Plan Button ───
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () => context.push(AppRoutes.subscription),
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('Change Plan'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── Promo Code ───
+          _SectionCard(
+            icon: Icons.redeem,
+            iconColor: AppColors.accent,
+            title: 'Promo Code',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Have a promo code? Redeem it to get free days added to your subscription!',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _showRedeemDialog,
+                    icon: const Icon(Icons.redeem, size: 18),
+                    label: const Text('Redeem Promo Code'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ─── Cancel Subscription ───
+          if (!isFreePlan && !isCancelled) ...[
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _showCancelSubscriptionDialog,
+              icon: Icon(Icons.cancel_outlined, color: AppColors.error),
+              label: Text(
+                'Cancel Subscription',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                'Cancelling will keep your plan active until expiry. After that, you\'ll move to the Free plan.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsageRow(String label, int current, int limit, String text) {
+    final fraction = limit >= 999999 ? 0.05 : (current / limit).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: fraction,
+                  minHeight: 6,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCancelSubscriptionDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Subscription?'),
+        content: const Text(
+          'Your plan will remain active until the current billing period ends. '
+          'After that, you\'ll be moved to the Free plan with limited features.\n\n'
+          'Are you sure you want to cancel?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Plan'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Cancel Subscription'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _cancelSubscription();
+    }
+  }
+
+  Future<void> _cancelSubscription() async {
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'asia-south1');
+      final result = await functions.httpsCallable('cancelSubscription').call();
+      final data = result.data as Map<String, dynamic>;
+
+      if (data['success'] == true && mounted) {
+        setState(() {
+          _subscription = UserSubscription(
+            plan: _subscription.plan,
+            status: SubscriptionStatus.cancelled,
+            startedAt: _subscription.startedAt,
+            expiresAt: _subscription.expiresAt,
+            razorpayCustomerId: _subscription.razorpayCustomerId,
+            razorpaySubscriptionId: _subscription.razorpaySubscriptionId,
+          );
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Subscription cancelled. Your plan stays active until expiry.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to cancel: $e')),
+        );
+      }
+    }
   }
 
   // ============ BILLING TAB ============

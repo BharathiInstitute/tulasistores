@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:retaillite/core/config/plan_config.dart';
+import 'package:retaillite/shared/widgets/feature_gate.dart';
 import 'package:retaillite/features/staff/models/staff_model.dart';
 import 'package:retaillite/features/staff/providers/staff_provider.dart';
 import 'package:retaillite/features/staff/services/staff_service.dart';
@@ -35,6 +37,11 @@ class _AddStaffDialogState extends ConsumerState<AddStaffDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Check staff feature access and limit
+    if (!FeatureAccess.check(context, ref, PlanFeature.staffManagement)) return;
+    final staffList = ref.read(staffListProvider).valueOrNull ?? [];
+    if (!FeatureAccess.checkStaffLimit(context, ref, staffList.length)) return;
 
     setState(() => _loading = true);
 

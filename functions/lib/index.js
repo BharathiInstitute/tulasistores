@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.transferStoreOwnership = exports.removeStoreUser = exports.createStoreUser = exports.deactivateStaffUser = exports.createStaffUser = exports.onSupportMessage = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.verifyPayment = exports.createOrder = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.createPaymentToken = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
+exports.transferStoreOwnership = exports.removeStoreUser = exports.createStoreUser = exports.deactivateStaffUser = exports.createStaffUser = exports.onSupportMessage = exports.seedUserUsage = exports.scheduledFirestoreBackup = exports.sendNotificationToPlan = exports.sendNotificationToAll = exports.getSubscriptionLimits = exports.seedAdmins = exports.onCustomerDeleted = exports.onCustomerCreated = exports.onProductDeleted = exports.onProductCreated = exports.onBillCreated = exports.processReferralReward = exports.redeemReferralCode = exports.onSubscriptionWrite = exports.generateMonthlyReport = exports.exchangeIdToken = exports.sendDailySalesSummary = exports.checkChurnedUsers = exports.checkSubscriptionExpiry = exports.cancelSubscription = exports.verifyPayment = exports.createOrder = exports.checkLowStock = exports.cleanupOldNotifications = exports.sendPushNotification = exports.onNewUserSignup = exports.createPaymentToken = exports.generateDesktopToken = exports.deleteUserAccount = exports.onUserDeleted = exports.verifyRegistrationOTP = exports.sendRegistrationOTP = exports.razorpayWebhook = exports.createPaymentLink = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -1105,8 +1105,10 @@ exports.verifyPayment = functions
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + daysToAdd);
     const billsLimit = plan === "pro" ? 500 : 999999;
-    const productsLimit = 999999;
+    const productsLimit = plan === "pro" ? 1000 : 999999;
     const customersLimit = 999999;
+    const staffLimit = plan === "pro" ? 2 : 10;
+    const storesLimit = plan === "pro" ? 1 : 5;
     const db = admin.firestore();
     // Update user document
     await db.collection("users").doc(userId).update({
@@ -1120,6 +1122,8 @@ exports.verifyPayment = functions
         "limits.billsLimit": billsLimit,
         "limits.productsLimit": productsLimit,
         "limits.customersLimit": customersLimit,
+        "limits.staffLimit": staffLimit,
+        "limits.storesLimit": storesLimit,
     });
     // Welcome notification
     await db.collection("users").doc(userId)
@@ -1139,6 +1143,47 @@ exports.verifyPayment = functions
         billsLimit,
         productsLimit,
     };
+});
+/**
+ * Cancel Subscription — marks subscription as cancelled.
+ * The plan stays active until expiresAt, then reverts to free.
+ */
+exports.cancelSubscription = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .https.onCall(async (_data, context) => {
+    var _a, _b, _c, _d, _e;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Login required");
+    }
+    const userId = context.auth.uid;
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "User not found");
+    }
+    const subscription = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.subscription;
+    if (!subscription || subscription.plan === "free") {
+        throw new functions.https.HttpsError("failed-precondition", "No active paid subscription to cancel");
+    }
+    if (subscription.status === "cancelled") {
+        throw new functions.https.HttpsError("already-exists", "Subscription is already cancelled");
+    }
+    await userRef.update({
+        "subscription.status": "cancelled",
+        "subscription.cancelledAt": admin.firestore.FieldValue.serverTimestamp(),
+    });
+    // Notify user
+    await userRef.collection("notifications").add({
+        title: "Subscription Cancelled",
+        body: `Your ${subscription.plan === "pro" ? "Pro" : "Business"} plan will remain active until ${((_e = (_d = (_c = (_b = subscription.expiresAt) === null || _b === void 0 ? void 0 : _b.toDate) === null || _c === void 0 ? void 0 : _c.call(_b)) === null || _d === void 0 ? void 0 : _d.toLocaleDateString) === null || _e === void 0 ? void 0 : _e.call(_d)) || "expiry"}. After that, you'll move to the Free plan.`,
+        type: "subscription",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`⚠️ cancelSubscription: user ${userId} cancelled ${subscription.plan} plan`);
+    return { success: true };
 });
 /**
  * Subscription Expiry Reminder — runs daily at 10 AM IST (4:30 UTC).
@@ -2135,6 +2180,9 @@ exports.getSubscriptionLimits = functions
             productsCount: 0,
             productsLimit: 100,
             customersCount: 0,
+            customersLimit: 10,
+            staffLimit: 0,
+            storesLimit: 1,
             plan: "free",
             status: "active",
         };
@@ -2148,6 +2196,9 @@ exports.getSubscriptionLimits = functions
         productsCount: limits.productsCount || 0,
         productsLimit: limits.productsLimit || 100,
         customersCount: limits.customersCount || 0,
+        customersLimit: limits.customersLimit || 10,
+        staffLimit: limits.staffLimit || 0,
+        storesLimit: limits.storesLimit || 1,
         plan: sub.plan || "free",
         status: sub.status || "active",
     };

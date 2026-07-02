@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Close Chrome for Debug",
+            "type": "process",
+            "command": "C:\\Windows\\System32\\taskkill.exe",
+            "args": ["/F", "/IM", "chrome.exe", "/T"],
+            "presentation": {
+                "reveal": "silent",
+                "close": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

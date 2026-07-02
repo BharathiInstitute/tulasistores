@@ -19,7 +19,7 @@
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com;
-    connect-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://fonts.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://api.razorpay.com wss://*.firebaseio.com;
+    connect-src 'self' blob: data: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* https://*.googleapis.com https://*.gstatic.com https://fonts.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://api.razorpay.com wss://*.firebaseio.com;
     worker-src 'self' blob:;
     frame-src 'self' https://*.google.com https://accounts.google.com https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com;
     object-src 'none';

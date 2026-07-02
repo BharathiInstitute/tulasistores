@@ -231,93 +231,33 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           _buildLinkedAccountsCard(theme),
           const SizedBox(height: 24),
 
-          // ── Subscription Section ──
+          // ── Subscription Section (link to dedicated tab) ──
           _buildSectionHeader(theme, 'Subscription'),
           Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                    child: Icon(
-                      Icons.workspace_premium,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  title: Text(
-                    '${_subscription.plan.name[0].toUpperCase()}${_subscription.plan.name.substring(1)} Plan',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    _limits.billsThisMonth < _limits.billsLimit
-                        ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "∞" : _limits.billsLimit} bills used this month'
-                        : '⚠️ Bill limit reached — upgrade to continue',
-                    style: TextStyle(
-                      color: _limits.billsThisMonth >= _limits.billsLimit
-                          ? AppColors.error
-                          : null,
-                    ),
-                  ),
-                  trailing: _subscription.plan == SubscriptionPlan.free
-                      ? FilledButton(
-                          onPressed: () => context.push(AppRoutes.subscription),
-                          child: const Text('Upgrade'),
-                        )
-                      : TextButton(
-                          onPressed: () => context.push(AppRoutes.subscription),
-                          child: const Text('Manage'),
-                        ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                child: Icon(
+                  Icons.workspace_premium,
+                  color: AppColors.primary,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // ── Promo Code Section ──
-          _buildSectionHeader(theme, 'Promo Code'),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha(25),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.redeem, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Have a promo code? Redeem it to get free days!',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.colorScheme.onSurface.withAlpha(153),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _showRedeemDialog,
-                      icon: const Icon(Icons.redeem, size: 18),
-                      label: const Text('Redeem Promo Code'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
+              title: Text(
+                '${_subscription.plan.name[0].toUpperCase()}${_subscription.plan.name.substring(1)} Plan',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                _limits.billsThisMonth < _limits.billsLimit
+                    ? '${_limits.billsThisMonth} / ${_limits.billsLimit == 999999 ? "∞" : _limits.billsLimit} bills used this month'
+                    : '⚠️ Bill limit reached — upgrade to continue',
+                style: TextStyle(
+                  color: _limits.billsThisMonth >= _limits.billsLimit
+                      ? AppColors.error
+                      : null,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/settings/subscription'),
             ),
           ),
           const SizedBox(height: 24),

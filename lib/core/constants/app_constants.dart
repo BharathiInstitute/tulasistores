@@ -12,23 +12,29 @@ class AppConstants {
   static const String version = '10.0.3';
 
   // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ FREE Tier Limits (enforced via UserSubscription.billsLimit / productsLimit) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-  static const int freeMaxBillsPerMonth = 50; // 50 bills / month
-  static const int freeMaxProducts = 100; // 100 products
-  static const int freeMaxCustomers = 10; // 10 customers
+  static const int freeMaxBillsPerMonth = 50;
+  static const int freeMaxProducts = 100;
+  static const int freeMaxCustomers = 10;
+  static const int freeMaxStaff = 0;
+  static const int freeMaxStores = 1;
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ PRO Tier Limits ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── PRO Tier Limits ──
   static const int proMaxBillsPerMonth = 500;
-  static const int proMaxProducts = 999999; // unlimited
+  static const int proMaxProducts = 1000;
   static const int proMaxCustomers = 999999; // unlimited
+  static const int proMaxStaff = 2;
+  static const int proMaxStores = 1;
   static const int proPriceInrMonthly = 299;
-  static const int proPriceInrAnnual = 2390; // ~20% off
+  static const int proPriceInrAnnual = 2390;
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ BUSINESS Tier Limits ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ── BUSINESS Tier Limits ──
   static const int businessMaxBillsPerMonth = 999999; // unlimited
   static const int businessMaxProducts = 999999; // unlimited
   static const int businessMaxCustomers = 999999; // unlimited
+  static const int businessMaxStaff = 10;
+  static const int businessMaxStores = 5;
   static const int businessPriceInrMonthly = 999;
-  static const int businessPriceInrAnnual = 7990; // ~20% off
+  static const int businessPriceInrAnnual = 7990;
 
   // OTP Settings
   static const int otpLength = 4;

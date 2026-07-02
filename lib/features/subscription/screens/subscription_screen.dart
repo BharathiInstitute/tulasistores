@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:retaillite/features/auth/providers/auth_provider.dart';
+import 'package:retaillite/core/config/plan_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Screen for viewing and managing subscription plans.
@@ -30,6 +31,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   String _currentPlan = 'free';
   String _subscriptionStatus = 'active';
   DateTime? _expiresAt;
+
+  static const _planRank = {'free': 0, 'pro': 1, 'business': 2};
+
+  /// Returns true if [planKey] is a higher tier than the current plan.
+  bool _isPlanHigher(String planKey) {
+    return (_planRank[planKey] ?? 0) > (_planRank[_currentPlan] ?? 0);
+  }
 
   @override
   void initState() {
@@ -136,10 +144,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               monthlyPrice: 0,
               annualPrice: 0,
               features: [
-                '50 bills/month',
-                '100 products',
-                '10 customers',
-                'Basic reports',
+                '${PlanConfig.free.maxBillsPerMonth} bills/month',
+                '${PlanConfig.free.maxProducts} products',
+                '${PlanConfig.free.maxCustomers} customers',
+                '${PlanConfig.free.maxStores} store',
+                'Basic reports (today/week)',
+                'Print receipts',
+                'Barcode scanning',
               ],
               color: Colors.grey,
             ),
@@ -148,14 +159,19 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               context,
               planKey: 'pro',
               name: 'Pro',
-              monthlyPrice: 10,
-              annualPrice: 20,
+              monthlyPrice: PlanConfig.proMonthlyPrice,
+              annualPrice: PlanConfig.proAnnualPrice,
               features: [
-                '500 bills/month',
-                '1,000 products',
-                '100 customers',
-                'Advanced reports',
-                'Priority support',
+                '${PlanConfig.pro.maxBillsPerMonth} bills/month',
+                '${PlanConfig.pro.maxProducts} products',
+                'Unlimited customers',
+                '${PlanConfig.pro.maxStaff} staff users',
+                '${PlanConfig.pro.maxStores} store',
+                'Full reports & analytics',
+                'Export CSV/PDF',
+                'Payment links',
+                'Push notifications',
+                'Multi-device sync',
               ],
               color: Colors.blue,
             ),
@@ -164,15 +180,20 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               context,
               planKey: 'business',
               name: 'Business',
-              monthlyPrice: 20,
-              annualPrice: 30,
+              monthlyPrice: PlanConfig.businessMonthlyPrice,
+              annualPrice: PlanConfig.businessAnnualPrice,
               features: [
                 'Unlimited bills',
                 'Unlimited products',
                 'Unlimited customers',
-                'All reports',
-                'Dedicated support',
+                '${PlanConfig.business.maxStaff} staff users',
+                '${PlanConfig.business.maxStores} stores',
+                'All reports & advanced analytics',
+                'Export CSV/PDF',
+                'Payment links',
+                'Push notifications',
                 'Multi-device sync',
+                'Priority phone + email support',
               ],
               color: Colors.purple,
             ),
@@ -267,7 +288,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 child: FilledButton.icon(
                   onPressed: _isLoading ? null : () => _handleUpgrade(planKey),
                   style: FilledButton.styleFrom(backgroundColor: color),
-                  icon: const Icon(Icons.open_in_browser, size: 18),
+                  icon: Icon(
+                    _isPlanHigher(planKey)
+                        ? Icons.open_in_browser
+                        : Icons.arrow_downward,
+                    size: 18,
+                  ),
                   label: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -277,7 +303,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : Text('Upgrade to $name'),
+                      : Text(
+                          _isPlanHigher(planKey)
+                              ? 'Upgrade to $name'
+                              : 'Downgrade to $name',
+                        ),
                 ),
               ),
           ],

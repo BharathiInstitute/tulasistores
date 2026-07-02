@@ -1261,8 +1261,10 @@ export const verifyPayment = functions
         expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
         const billsLimit = plan === "pro" ? 500 : 999999;
-        const productsLimit = 999999;
+        const productsLimit = plan === "pro" ? 1000 : 999999;
         const customersLimit = 999999;
+        const staffLimit = plan === "pro" ? 2 : 10;
+        const storesLimit = plan === "pro" ? 1 : 5;
 
         const db = admin.firestore();
 
@@ -1278,6 +1280,8 @@ export const verifyPayment = functions
             "limits.billsLimit": billsLimit,
             "limits.productsLimit": productsLimit,
             "limits.customersLimit": customersLimit,
+            "limits.staffLimit": staffLimit,
+            "limits.storesLimit": storesLimit,
         });
 
         // Welcome notification
@@ -1300,6 +1304,61 @@ export const verifyPayment = functions
             billsLimit,
             productsLimit,
         };
+    });
+
+/**
+ * Cancel Subscription — marks subscription as cancelled.
+ * The plan stays active until expiresAt, then reverts to free.
+ */
+export const cancelSubscription = functions
+    .region("asia-south1")
+    .runWith({ timeoutSeconds: 30, memory: "256MB" })
+    .https.onCall(async (_data: unknown, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "Login required");
+        }
+
+        const userId = context.auth.uid;
+        const db = admin.firestore();
+        const userRef = db.collection("users").doc(userId);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            throw new functions.https.HttpsError("not-found", "User not found");
+        }
+
+        const subscription = userDoc.data()?.subscription;
+        if (!subscription || subscription.plan === "free") {
+            throw new functions.https.HttpsError(
+                "failed-precondition",
+                "No active paid subscription to cancel"
+            );
+        }
+
+        if (subscription.status === "cancelled") {
+            throw new functions.https.HttpsError(
+                "already-exists",
+                "Subscription is already cancelled"
+            );
+        }
+
+        await userRef.update({
+            "subscription.status": "cancelled",
+            "subscription.cancelledAt": admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Notify user
+        await userRef.collection("notifications").add({
+            title: "Subscription Cancelled",
+            body: `Your ${subscription.plan === "pro" ? "Pro" : "Business"} plan will remain active until ${subscription.expiresAt?.toDate?.()?.toLocaleDateString?.() || "expiry"}. After that, you'll move to the Free plan.`,
+            type: "subscription",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(`⚠️ cancelSubscription: user ${userId} cancelled ${subscription.plan} plan`);
+
+        return { success: true };
     });
 
 /**
@@ -2413,6 +2472,9 @@ export const getSubscriptionLimits = functions
                 productsCount: 0,
                 productsLimit: 100,
                 customersCount: 0,
+                customersLimit: 10,
+                staffLimit: 0,
+                storesLimit: 1,
                 plan: "free",
                 status: "active",
             };
@@ -2428,6 +2490,9 @@ export const getSubscriptionLimits = functions
             productsCount: limits.productsCount || 0,
             productsLimit: limits.productsLimit || 100,
             customersCount: limits.customersCount || 0,
+            customersLimit: limits.customersLimit || 10,
+            staffLimit: limits.staffLimit || 0,
+            storesLimit: limits.storesLimit || 1,
             plan: sub.plan || "free",
             status: sub.status || "active",
         };

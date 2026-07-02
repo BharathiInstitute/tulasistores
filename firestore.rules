@@ -48,6 +48,18 @@ service cloud.firestore {
       return 'customersLimit' in limits && limits.customersCount < limits.customersLimit;
     }
 
+    // Check if user can add staff (staffCount < staffLimit)
+    function canAddStaff(userId) {
+      let limits = getUserLimits(userId);
+      return 'staffLimit' in limits && limits.staffCount < limits.staffLimit;
+    }
+
+    // Check if user can add a store (storesCount < storesLimit)
+    function canAddStore(userId) {
+      let limits = getUserLimits(userId);
+      return 'storesLimit' in limits && limits.storesCount < limits.storesLimit;
+    }
+
     // Check if user's subscription is active
     function hasActiveSubscription(userId) {
       let sub = get(/databases/$(database)/documents/users/$(userId)).data.subscription;
@@ -262,7 +274,9 @@ service cloud.firestore {
       // ===================
       match /staff/{staffId} {
         allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-        allow create, update: if isAuthenticated() && isOwner(userId)
+        allow create: if isAuthenticated() && isOwner(userId)
+          && isReasonableSize() && canAddStaff(userId);
+        allow update: if isAuthenticated() && isOwner(userId)
           && isReasonableSize();
         allow delete: if isAuthenticated() && isOwner(userId);
 

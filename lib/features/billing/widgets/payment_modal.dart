@@ -29,6 +29,8 @@ import 'package:retaillite/models/customer_model.dart';
 import 'package:retaillite/models/user_model.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:retaillite/core/services/payment_link_service.dart';
+import 'package:retaillite/core/config/plan_config.dart';
+import 'package:retaillite/shared/widgets/feature_gate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:retaillite/shared/widgets/onboarding_checklist.dart';
 import 'package:retaillite/features/billing/providers/billing_provider.dart';
@@ -697,6 +699,7 @@ class _PaymentModalState extends ConsumerState<PaymentModal> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
+                      if (!FeatureAccess.check(context, ref, PlanFeature.paymentLinks)) return;
                       if (_selectedCustomer == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
